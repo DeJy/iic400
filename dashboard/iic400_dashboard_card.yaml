@@ -1,0 +1,42 @@
+# Lovelace "Irrigation" card: paste into a Manual card
+# (Dashboard > Edit > Add card > Manual)
+type: vertical-stack
+cards:
+  # Zone switches: ON = the zone is actually watering (device-reported).
+  # Tap to start for the selected duration; tap again to stop.
+  - type: entities
+    title: Manual watering
+    entities:
+      - input_number.iic400_manual_minutes
+      - switch.zone_1
+      - switch.zone_2
+      - switch.zone_3
+      - switch.zone_4
+
+
+  - type: entities
+    title: On-device schedules
+    entities:
+      - entity: sensor.zone_1_schedule
+        name: Zone 1
+      - entity: sensor.zone_2_schedule
+        name: Zone 2
+      - entity: sensor.zone_3_schedule
+        name: Zone 3
+      - entity: sensor.zone_4_schedule
+        name: Zone 4
+      - entity: script.iic400_refresh_schedules
+        name: Re-read from device
+
+  - type: entities
+    title: Edit a schedule
+    entities:
+      - input_text.iic400_zones
+      - input_number.iic400_minutes
+      - input_text.iic400_times
+      - input_text.iic400_mode
+      - input_select.iic400_rain
+      - entity: script.iic400_apply_schedule
+        name: ">> Apply"
+      - entity: script.iic400_clear_schedule
+        name: ">> Clear (entered zones)"

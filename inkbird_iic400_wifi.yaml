@@ -1,0 +1,212 @@
+name: Inkbird IIC-400 irrigation controller
+# Note for tuya-local PR reviewers: entity names are plain English;
+# feel free to map them to existing translation_keys where available.
+products:
+  - id: x7hkmeis8yqj6ntj
+    manufacturer: Inkbird
+    model: IIC-400-WIFI
+entities:
+  # Operation mode (primary entity)
+  - entity: select
+    name: Operation mode
+    icon: "mdi:sprinkler-variant"
+    dps:
+      - id: 101
+        type: string
+        name: option
+        mapping:
+          - dps_val: "OFF"
+            value: "Off"
+          - dps_val: "Manual"
+            value: "Manual"
+          - dps_val: "Auto"
+            value: "Auto"
+
+  # Rain sensor enable. When ON with no physical sensor wired to the
+  # SENS terminals (or missing jumper), the device reports rain and
+  # blocks irrigation (blinking rain indicator).
+  - entity: switch
+    name: Rain sensor enable
+    category: config
+    icon: "mdi:weather-rainy"
+    dps:
+      - id: 102
+        type: boolean
+        name: switch
+
+  # Master valve enable. When ON, the MV terminal is powered
+  # automatically (in hardware) whenever any zone runs.
+  - entity: switch
+    name: Master valve enable
+    category: config
+    icon: "mdi:pipe-valve"
+    dps:
+      - id: 111
+        type: boolean
+        name: switch
+        optional: true
+
+  # Zone sequencing: run zones one after another or simultaneously
+  - entity: select
+    name: Zone sequencing
+    category: config
+    icon: "mdi:order-numeric-ascending"
+    dps:
+      - id: 44
+        type: string
+        name: option
+        optional: true
+        mapping:
+          - dps_val: "order"
+            value: "Sequential"
+          - dps_val: "together"
+            value: "Simultaneous"
+
+  # Seasonal adjustment in percent
+  - entity: number
+    name: Seasonal adjustment
+    category: config
+    icon: "mdi:percent"
+    dps:
+      - id: 103
+        type: integer
+        name: value
+        optional: true
+        unit: "%"
+        range:
+          min: -90
+          max: 100
+        mapping:
+          - step: 10
+
+  # Zones currently running, human-readable.
+  # DP 107 is a bitmask: zone1=1, zone2=2, zone3=4, zone4=8.
+  - entity: sensor
+    name: Zones running
+    class: enum
+    category: diagnostic
+    icon: "mdi:sprinkler"
+    dps:
+      - id: 107
+        type: integer
+        name: sensor
+        mapping:
+          - dps_val: 0
+            value: "None"
+          - dps_val: 1
+            value: "Zone 1"
+          - dps_val: 2
+            value: "Zone 2"
+          - dps_val: 3
+            value: "Zones 1+2"
+          - dps_val: 4
+            value: "Zone 3"
+          - dps_val: 5
+            value: "Zones 1+3"
+          - dps_val: 6
+            value: "Zones 2+3"
+          - dps_val: 7
+            value: "Zones 1+2+3"
+          - dps_val: 8
+            value: "Zone 4"
+          - dps_val: 9
+            value: "Zones 1+4"
+          - dps_val: 10
+            value: "Zones 2+4"
+          - dps_val: 11
+            value: "Zones 1+2+4"
+          - dps_val: 12
+            value: "Zones 3+4"
+          - dps_val: 13
+            value: "Zones 1+3+4"
+          - dps_val: 14
+            value: "Zones 2+3+4"
+          - dps_val: 15
+            value: "All zones"
+
+  # Raw bitmask value, for templates and automations
+  - entity: sensor
+    name: Zones running raw
+    category: diagnostic
+    icon: "mdi:numeric"
+    dps:
+      - id: 107
+        type: integer
+        name: sensor
+
+  # Zones queued for irrigation (same bitmask as running)
+  - entity: sensor
+    name: Zones pending
+    class: enum
+    category: diagnostic
+    icon: "mdi:timer-sand"
+    dps:
+      - id: 108
+        type: integer
+        name: sensor
+        optional: true
+        mapping:
+          - dps_val: 0
+            value: "None"
+          - dps_val: 1
+            value: "Zone 1"
+          - dps_val: 2
+            value: "Zone 2"
+          - dps_val: 3
+            value: "Zones 1+2"
+          - dps_val: 4
+            value: "Zone 3"
+          - dps_val: 5
+            value: "Zones 1+3"
+          - dps_val: 6
+            value: "Zones 2+3"
+          - dps_val: 7
+            value: "Zones 1+2+3"
+          - dps_val: 8
+            value: "Zone 4"
+          - dps_val: 9
+            value: "Zones 1+4"
+          - dps_val: 10
+            value: "Zones 2+4"
+          - dps_val: 11
+            value: "Zones 1+2+4"
+          - dps_val: 12
+            value: "Zones 3+4"
+          - dps_val: 13
+            value: "Zones 1+3+4"
+          - dps_val: 14
+            value: "Zones 2+3+4"
+          - dps_val: 15
+            value: "All zones"
+
+  # Internal clock fault
+  - entity: binary_sensor
+    name: Clock error
+    class: problem
+    category: diagnostic
+    dps:
+      - id: 106
+        type: boolean
+        name: sensor
+        optional: true
+
+# Protocol reference (reverse-engineered and hardware-validated, 2026-07):
+#   DP 38 normal_timer, 20 bytes per block:
+#     [0]     zone BITMASK (z1=0x01, z2=0x02, z3=0x04, z4=0x08;
+#             multi-zone blocks are valid, e.g. 0x03 = zones 1+2)
+#     [1]     watering duration in minutes (0 = schedule disabled)
+#     [2-7]   6 start HOURS (0-23), 0xFF = slot unused
+#     [8-13]  6 start MINUTES (0-59), index-aligned with hours
+#     [14]    cycle: 0=custom days, 1=odd days, 2=even days, 3=interval
+#     [15]    weekday bitmap (bit0=Mon..bit6=Sun, 0x7F=all) for cycle 0,
+#             day count for cycle 3, 0x00 for odd/even
+#     [16-18] interval start date: YEAR-2000, MONTH, DAY (else 00 00 00)
+#     [19]    rain sensor: 0x11 = obey, 0x00 = ignore
+#   The internal schedule clock is synced by the Inkbird app only;
+#   without the app it free-runs.
+#   DP 45 irrigation_time_all: manual start, raw 18 bytes (base64):
+#     [0]=1 start/reset, [1]=1 specific zones,
+#     [2-9] run time per zone (2 bytes BE, minutes, z1..z4),
+#     [10-17] single-use time, same layout. Stop: [0]=1, rest zero.
+#   DP 104 history log; DP 105 factory reset; DP 110 OTA flag
+#   (do NOT power-cycle while true).
