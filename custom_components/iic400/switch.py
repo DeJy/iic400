@@ -29,6 +29,12 @@ way to stop a single zone while others keep running. Because state here is
 read from the real device sensor, all 4 switches will correctly show "off"
 together when this happens - don't try to "fix" that by only clearing local
 state for the zone that was clicked. Only run one zone at a time.
+
+Since only one zone can ever be running, turning a zone on (or off) also
+optimistically flips every *other* zone switch to off in the same call -
+otherwise a sibling that was running would sit "on" for the full debounce
+window even though it demonstrably can't still be running. See
+coordinator.zone_switches, populated below in async_setup_entry.
 """
 import logging
 
@@ -55,9 +61,9 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     coordinator: Iic400Coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    async_add_entities(
-        [Iic400ZoneSwitch(entry, coordinator, zone) for zone in range(1, ZONE_COUNT + 1)]
-    )
+    entities = [Iic400ZoneSwitch(entry, coordinator, zone) for zone in range(1, ZONE_COUNT + 1)]
+    coordinator.zone_switches = entities
+    async_add_entities(entities)
 
 
 class Iic400ZoneSwitch(CoordinatorEntity, SwitchEntity):
@@ -146,24 +152,29 @@ class Iic400ZoneSwitch(CoordinatorEntity, SwitchEntity):
         self._attr_is_on = new_value
         self.async_write_ha_state()
 
-    async def _send(self, payload, optimistic_value):
-        # If the send fails, the device never changed state, so no sensor
-        # event will ever arrive to correct our optimistic guess - revert it
-        # ourselves instead of leaving the switch stuck wrong.
-        previous = self._attr_is_on
-        self._set_optimistic(optimistic_value)
+    async def _send(self, payload, active_zone):
+        # active_zone is the zone number left running afterwards, or None if
+        # this is a stop-all. Only one zone can ever run, so every switch -
+        # not just this one - gets its optimistic value set in the same pass.
+        switches = self.coordinator.zone_switches or [self]
+        previous = {s: s._attr_is_on for s in switches}
+        for s in switches:
+            s._set_optimistic(s._zone == active_zone)
         try:
             await self.coordinator.async_send_manual(payload)
         except Exception:
-            self._set_optimistic(previous)
+            # Send failed - the device state never changed, so no sensor
+            # event will ever arrive to correct these guesses. Revert them.
+            for s, prev in previous.items():
+                s._set_optimistic(prev)
             raise
 
     async def async_turn_on(self, **kwargs):
         durations = [0] * ZONE_COUNT
         durations[self._zone - 1] = self.coordinator.failsafe_minutes
         payload = tuya_dp.build_manual(durations)
-        await self._send(payload, True)
+        await self._send(payload, self._zone)
 
     async def async_turn_off(self, **kwargs):
         payload = tuya_dp.build_stop()
-        await self._send(payload, False)
+        await self._send(payload, None)

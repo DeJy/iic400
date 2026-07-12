@@ -29,6 +29,10 @@ class Iic400Coordinator(DataUpdateCoordinator):
         # Read by switch.py, written by number.py's failsafe-minutes entity -
         # avoids fragile cross-platform entity_id lookups.
         self.failsafe_minutes = DEFAULT_FAILSAFE_MINUTES
+        # Populated by switch.py's async_setup_entry. Only one zone can run
+        # at a time, so a switch turning on/off needs to optimistically flip
+        # its siblings too, not just itself - this is how they find each other.
+        self.zone_switches = []
         self.data = {"schedules": {z: None for z in range(1, ZONE_COUNT + 1)},
                       "last_schedule_update": None}
 
