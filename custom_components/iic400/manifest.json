@@ -1,0 +1,12 @@
+{
+  "domain": "iic400",
+  "name": "Inkbird IIC-400 Irrigation",
+  "config_flow": true,
+  "dependencies": ["tuya_local"],
+  "documentation": "https://github.com/DeJy/iic400",
+  "issue_tracker": "https://github.com/DeJy/iic400/issues",
+  "requirements": ["tinytuya>=1.13.0"],
+  "codeowners": ["@DeJy"],
+  "iot_class": "local_push",
+  "version": "0.1.0"
+}

@@ -1,0 +1,25 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pick the IIC-400's tuya-local device",
+        "description": "Choose the tuya-local config entry for your Inkbird IIC-400. Credentials (device ID, local key, host) are copied from it - you won't need to re-enter them.",
+        "data": {
+          "source_entry_id": "Tuya-local device"
+        }
+      },
+      "zones_sensor": {
+        "title": "Confirm the \"zones running\" sensor",
+        "description": "Pick the tuya-local sensor entity that reports the zones-running bitmask (DP 107) for this device. It's usually pre-selected below.",
+        "data": {
+          "zones_running_entity_id": "Zones running sensor"
+        }
+      }
+    },
+    "abort": {
+      "no_tuya_local_entries": "No tuya-local devices found. Set up the tuya-local integration and add your IIC-400 to it first.",
+      "incomplete_tuya_local_entry": "The selected tuya-local entry is missing device_id/local_key/host - reconfigure it in tuya-local first.",
+      "already_configured": "This device is already configured."
+    }
+  }
+}

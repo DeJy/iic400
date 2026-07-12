@@ -1,5 +1,5 @@
 # --- add to your repo's .gitignore ---
-iic400_secrets.json
-iic400_schedules.json
 secrets.yaml
 .storage/
+__pycache__/
+*.pyc
