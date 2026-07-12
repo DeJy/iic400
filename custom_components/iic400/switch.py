@@ -85,6 +85,15 @@ class Iic400ZoneSwitch(CoordinatorEntity, SwitchEntity):
         try:
             return (int(raw_state) & self._bit) > 0
         except (TypeError, ValueError):
+            _LOGGER.warning(
+                "%s: source entity %s has a non-numeric state (%r) - it must be "
+                "the raw zones-running bitmask sensor, not the human-readable "
+                "enum one. Reconfigure the integration and pick the '... raw' "
+                "sensor.",
+                self.entity_id,
+                self._source_sensor,
+                raw_state,
+            )
             return False
 
     @callback

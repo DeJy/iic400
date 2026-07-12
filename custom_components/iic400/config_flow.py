@@ -29,20 +29,23 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-def _guess_zones_running_entity(hass, source_entry_id):
-    """Best-effort guess at the tuya_local 'zones running' sensor for this
-    device, used only to pre-fill the picker - never trusted blindly."""
+def _candidate_zones_running_entities(hass, source_entry_id):
+    """tuya_local entities for this device's raw zones-running bitmask sensor.
+
+    Restricted to the unmapped "... raw" sensor - switch.py parses this
+    state with int(), and the human-readable enum sibling sensor (state
+    text like "Zone 1", "Zones 1+2") isn't parseable, which silently pins
+    every zone switch "off".
+    """
     registry = er.async_get(hass)
-    candidates = [
+    return [
         entry
         for entry in er.async_entries_for_config_entry(registry, source_entry_id)
         if entry.domain == "sensor"
         and "zone" in (entry.entity_id or "").lower()
         and "running" in (entry.entity_id or "").lower()
+        and "raw" in (entry.entity_id or "").lower()
     ]
-    if len(candidates) == 1:
-        return candidates[0].entity_id
-    return None
 
 
 class Iic400ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -105,16 +108,20 @@ class Iic400ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data=self._device_data,
             )
 
-        suggested = _guess_zones_running_entity(
+        candidates = _candidate_zones_running_entities(
             self.hass, self._source_entry.entry_id
         )
+        suggested = candidates[0].entity_id if len(candidates) == 1 else None
         schema = vol.Schema(
             {
                 vol.Required(
                     CONF_ZONES_RUNNING_ENTITY_ID,
                     description={"suggested_value": suggested} if suggested else None,
                 ): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="sensor")
+                    selector.EntitySelectorConfig(
+                        domain="sensor",
+                        include_entities=[c.entity_id for c in candidates] or None,
+                    )
                 )
             }
         )
