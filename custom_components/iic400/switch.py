@@ -7,6 +7,17 @@ A short debounce smooths over tuya-local reconnect blips right after we write
 a DP (see const.ZONE_STATE_DELAY_ON/OFF), mirroring the previous
 template binary_sensor delay_on/delay_off.
 
+turn_on/turn_off also set _attr_is_on optimistically the moment the DP is
+sent, instead of waiting for the sensor round-trip. Without this, the
+frontend's optimistic toggle gets contradicted by our own unchanged state
+right as the service call returns (flips back), then corrected again once the
+sensor debounce fires - a visible on/off/on flicker. The sensor-driven
+debounce above remains the actual source of truth: it silently confirms the
+optimistic guess when the sensor agrees, and overrides it if the device
+disagrees (e.g. a failed write). This isn't the "local command-tracking"
+that's discouraged above - it's a prediction that the real tracking still
+verifies, not a replacement for it.
+
 turn_on starts ONLY the targeted zone, using coordinator.failsafe_minutes as a
 safety-net duration (Smart Irrigation - and any similar automation - times the
 run itself and calls turn_off; the failsafe just guards against a missed
@@ -128,12 +139,31 @@ class Iic400ZoneSwitch(CoordinatorEntity, SwitchEntity):
 
         self._cancel_debounce = async_call_later(self.hass, delay, _commit)
 
+    def _set_optimistic(self, new_value):
+        if self._cancel_debounce is not None:
+            self._cancel_debounce()
+            self._cancel_debounce = None
+        self._attr_is_on = new_value
+        self.async_write_ha_state()
+
+    async def _send(self, payload, optimistic_value):
+        # If the send fails, the device never changed state, so no sensor
+        # event will ever arrive to correct our optimistic guess - revert it
+        # ourselves instead of leaving the switch stuck wrong.
+        previous = self._attr_is_on
+        self._set_optimistic(optimistic_value)
+        try:
+            await self.coordinator.async_send_manual(payload)
+        except Exception:
+            self._set_optimistic(previous)
+            raise
+
     async def async_turn_on(self, **kwargs):
         durations = [0] * ZONE_COUNT
         durations[self._zone - 1] = self.coordinator.failsafe_minutes
         payload = tuya_dp.build_manual(durations)
-        await self.coordinator.async_send_manual(payload)
+        await self._send(payload, True)
 
     async def async_turn_off(self, **kwargs):
         payload = tuya_dp.build_stop()
-        await self.coordinator.async_send_manual(payload)
+        await self._send(payload, False)

@@ -20,9 +20,12 @@ MIN_FAILSAFE_MINUTES = 1
 MAX_FAILSAFE_MINUTES = 1440
 
 # Debounce, mirrors the old template binary_sensor delay_on/delay_off - smooths
-# over tuya-local reconnect blips right after we write a DP.
-ZONE_STATE_DELAY_ON = 4
-ZONE_STATE_DELAY_OFF = 2
+# over tuya-local reconnect blips right after we write a DP. Switch turn_on/
+# turn_off set state optimistically first, so this delay is purely a
+# background reconciliation window against the real sensor, not something the
+# user waits through visually.
+ZONE_STATE_DELAY_ON = 10
+ZONE_STATE_DELAY_OFF = 10
 
 SCHEDULE_LISTEN_TIMEOUT = 2
 SCHEDULE_REFRESH_WAIT = 6
