@@ -42,7 +42,12 @@ ZONE_STATE_DELAY_ON = 10
 ZONE_STATE_DELAY_OFF = 10
 
 SCHEDULE_LISTEN_TIMEOUT = 2
-SCHEDULE_REFRESH_WAIT = 6
+# Total time async_request_schedule_refresh will keep polling for DP 38
+# blocks before giving up on collecting all zones - the device appears to
+# push at most one new block per request rather than all pending ones at
+# once, so a short window can leave later zones stuck on "unknown" even
+# though the device does have a schedule for them.
+SCHEDULE_REFRESH_WAIT = 20
 
 SERVICE_SET_SCHEDULE = "set_schedule"
 SERVICE_CLEAR_SCHEDULE = "clear_schedule"
