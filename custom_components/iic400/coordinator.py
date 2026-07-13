@@ -117,28 +117,38 @@ class Iic400Coordinator(DataUpdateCoordinator):
         self.data["last_schedule_update"] = updated_at
         self.async_set_updated_data(self.data)
 
+    def _all_zones_captured(self):
+        return all(
+            self.data["schedules"].get(z) is not None for z in range(1, ZONE_COUNT + 1)
+        )
+
     async def async_request_schedule_refresh(self, zone=None):
         """Prompt the device for its DP 38 blocks and wait briefly for the
-        result. Some firmware embeds the pushed blocks directly in the
-        updatedps() ack; others send them as separate later messages - this
-        previously discarded the ack's return value entirely and relied on
-        the background listener to independently catch a follow-up push
-        that, on some firmware, never comes (the device only replies once,
-        inside the ack). Now checks the ack first, then polls with the same
-        short timeout the listener uses, up to SCHEDULE_REFRESH_WAIT total,
-        before giving up."""
+        result. The device doesn't send one block covering all zones - each
+        push carries a zone bitmask for whichever zones share that exact
+        schedule (e.g. one block for zones 1+2, another for zone 3, another
+        for zone 4), so a single received block is not "the" answer, just
+        part of it. Some firmware also embeds the first pushed block
+        directly in the updatedps() ack rather than sending it as a separate
+        later message. Keeps collecting blocks - from the ack, then by
+        polling with the listener's own timeout - until every zone has been
+        accounted for or SCHEDULE_REFRESH_WAIT total has elapsed, instead of
+        stopping at the first block seen (which previously left zones whose
+        block arrived second, third, etc. stuck on "unknown")."""
         async with self._lock:
             result = await self.hass.async_add_executor_job(
                 self.client.request_schedule_report
             )
-            if self._maybe_handle_schedule_data(result):
+            self._maybe_handle_schedule_data(result)
+            if self._all_zones_captured():
                 return
             attempts = max(1, SCHEDULE_REFRESH_WAIT // SCHEDULE_LISTEN_TIMEOUT)
             for _ in range(attempts):
                 data = await self.hass.async_add_executor_job(
                     self.client.receive, SCHEDULE_LISTEN_TIMEOUT
                 )
-                if self._maybe_handle_schedule_data(data):
+                self._maybe_handle_schedule_data(data)
+                if self._all_zones_captured():
                     return
 
     async def async_send_manual(self, payload_b64):
