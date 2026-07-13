@@ -78,7 +78,8 @@ class Iic400ZoneSwitch(CoordinatorEntity, SwitchEntity):
         self._bit = 1 << (zone - 1)
         self._source_sensor = entry.data[CONF_ZONES_RUNNING_ENTITY_ID]
         device_id = entry.data[CONF_DEVICE_ID]
-        self._attr_name = f"Zone {zone}"
+        self._attr_name = f"0{zone} · Zone {zone}"
+        self._attr_suggested_object_id = f"zone_{zone}"
         self._attr_unique_id = f"{device_id}_zone_{zone}_switch"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
@@ -188,8 +189,9 @@ class Iic400ScheduleRainObeySwitch(RestoreEntity, SwitchEntity):
     schedule" is pressed."""
 
     _attr_has_entity_name = True
-    _attr_name = "Schedule obey rain sensor"
+    _attr_name = "11 · Schedule obey rain sensor"
     _attr_icon = "mdi:weather-rainy"
+    _attr_suggested_object_id = "schedule_obey_rain_sensor"
 
     def __init__(self, entry: ConfigEntry, coordinator: Iic400Coordinator):
         self._coordinator = coordinator

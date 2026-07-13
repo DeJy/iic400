@@ -51,8 +51,9 @@ class _ScheduleFormText(RestoreEntity, TextEntity):
 
 
 class Iic400ScheduleZonesText(_ScheduleFormText):
-    _attr_name = "Schedule zones"
+    _attr_name = "06 · Schedule zones"
     _attr_icon = "mdi:selection-ellipse-arrow-inside"
+    _attr_suggested_object_id = "schedule_zones"
     _coordinator_attr = "schedule_form_zones"
 
     def __init__(self, entry: ConfigEntry, coordinator: Iic400Coordinator):
@@ -62,8 +63,9 @@ class Iic400ScheduleZonesText(_ScheduleFormText):
 
 
 class Iic400ScheduleStartTimesText(_ScheduleFormText):
-    _attr_name = "Schedule start times"
+    _attr_name = "07 · Schedule start times"
     _attr_icon = "mdi:clock-plus-outline"
+    _attr_suggested_object_id = "schedule_start_times"
     _coordinator_attr = "schedule_form_start_times"
 
     def __init__(self, entry: ConfigEntry, coordinator: Iic400Coordinator):

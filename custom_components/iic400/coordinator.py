@@ -15,10 +15,14 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     DEFAULT_FAILSAFE_MINUTES,
+    DEFAULT_SCHEDULE_CYCLE,
     DEFAULT_SCHEDULE_DURATION_MINUTES,
+    DEFAULT_SCHEDULE_INTERVAL_DAYS,
     DEFAULT_SCHEDULE_START_TIMES,
     DEFAULT_SCHEDULE_ZONES,
     DOMAIN,
+    SCHEDULE_CYCLE_INTERVAL,
+    SCHEDULE_CYCLE_TO_TYPE,
     ZONE_COUNT,
 )
 from .tuya_client import Iic400TuyaClient
@@ -41,15 +45,25 @@ class Iic400Coordinator(DataUpdateCoordinator):
         # its siblings too, not just itself - this is how they find each other.
         self.zone_switches = []
         # Shared "new schedule" form fields (one instance for all zones, not
-        # per-zone) - written by text.py/number.py/switch.py entities, read by
-        # button.py's Save/Clear buttons. Same cross-platform-lookup-avoidance
-        # pattern as failsafe_minutes above.
+        # per-zone) - written by text.py/number.py/select.py/switch.py
+        # entities, read by button.py's Save/Clear buttons. Same
+        # cross-platform-lookup-avoidance pattern as failsafe_minutes above.
         self.schedule_form_zones = DEFAULT_SCHEDULE_ZONES
         self.schedule_form_start_times = DEFAULT_SCHEDULE_START_TIMES
         self.schedule_form_duration = DEFAULT_SCHEDULE_DURATION_MINUTES
+        self.schedule_form_cycle = DEFAULT_SCHEDULE_CYCLE
+        self.schedule_form_interval_days = DEFAULT_SCHEDULE_INTERVAL_DAYS
         self.schedule_form_rain_obey = True
         self.data = {"schedules": {z: None for z in range(1, ZONE_COUNT + 1)},
                       "last_schedule_update": None}
+
+    @property
+    def schedule_form_cycle_type(self):
+        """schedule_form_cycle (a display option) translated to the
+        cycle_type string tuya_dp.parse_mode expects."""
+        if self.schedule_form_cycle == SCHEDULE_CYCLE_INTERVAL:
+            return f"interval:{int(self.schedule_form_interval_days)}"
+        return SCHEDULE_CYCLE_TO_TYPE.get(self.schedule_form_cycle, "all")
 
     async def _async_update_data(self):
         # Connectivity check only - schedule data arrives via the listener.

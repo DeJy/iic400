@@ -13,17 +13,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     coordinator: Iic400Coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     async_add_entities(
         [
-            Iic400RefreshSchedulesButton(entry, coordinator),
-            Iic400SaveScheduleButton(entry, coordinator),
             Iic400ClearScheduleButton(entry, coordinator),
+            Iic400SaveScheduleButton(entry, coordinator),
+            Iic400RefreshSchedulesButton(entry, coordinator),
         ]
     )
 
 
 class Iic400RefreshSchedulesButton(ButtonEntity):
     _attr_has_entity_name = True
-    _attr_name = "Refresh schedules from device"
+    _attr_name = "14 · Refresh schedules from device"
     _attr_icon = "mdi:refresh"
+    _attr_suggested_object_id = "refresh_schedules_from_device"
 
     def __init__(self, entry: ConfigEntry, coordinator: Iic400Coordinator):
         self._coordinator = coordinator
@@ -39,12 +40,14 @@ class Iic400RefreshSchedulesButton(ButtonEntity):
 
 
 class Iic400SaveScheduleButton(ButtonEntity):
-    """Sends the shared 'new schedule' form (zones/start times/duration/rain
-    switch - see text.py, number.py, switch.py) as a DP 38 write."""
+    """Sends the shared 'new schedule' form (zones/start times/duration/cycle/
+    rain switch - see text.py, number.py, select.py, switch.py) as a DP 38
+    write."""
 
     _attr_has_entity_name = True
-    _attr_name = "Save schedule"
+    _attr_name = "13 · Save schedule"
     _attr_icon = "mdi:content-save-outline"
+    _attr_suggested_object_id = "save_schedule"
 
     def __init__(self, entry: ConfigEntry, coordinator: Iic400Coordinator):
         self._coordinator = coordinator
@@ -61,6 +64,7 @@ class Iic400SaveScheduleButton(ButtonEntity):
             c.schedule_form_zones,
             c.schedule_form_duration,
             c.schedule_form_start_times,
+            cycle_type=c.schedule_form_cycle_type,
             rain_obey=c.schedule_form_rain_obey,
         )
 
@@ -70,8 +74,9 @@ class Iic400ClearScheduleButton(ButtonEntity):
     form's "Schedule zones" field (see text.py)."""
 
     _attr_has_entity_name = True
-    _attr_name = "Clear schedule"
+    _attr_name = "12 · Clear schedule"
     _attr_icon = "mdi:calendar-remove-outline"
+    _attr_suggested_object_id = "clear_schedule"
 
     def __init__(self, entry: ConfigEntry, coordinator: Iic400Coordinator):
         self._coordinator = coordinator

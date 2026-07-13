@@ -94,15 +94,22 @@ You should now have, under a new **"IIC-400 Irrigation"** device:
   switches (see below).
 - `sensor.zone_1_schedule` … `sensor.zone_4_schedule` — last-known on-device
   schedule per zone (passively captured, not polled).
-- `button.refresh_schedules_from_device` — prompts the device to report its
-  current schedules.
 - A shared **schedule editor** (one instance, applies to whichever zone(s) you
   name in it — not per-zone): `text.schedule_zones`,
   `text.schedule_start_times`, `number.schedule_duration`,
-  `switch.schedule_obey_rain_sensor`, `button.save_schedule`,
-  `button.clear_schedule` (see below).
+  `select.schedule_cycle`, `number.schedule_interval_days`,
+  `switch.schedule_obey_rain_sensor`, `button.clear_schedule`,
+  `button.save_schedule`, `button.refresh_schedules_from_device` (see below).
 - Services `iic400.set_schedule`, `iic400.clear_schedule`,
   `iic400.quick_water` (see below).
+
+Each entity's display name is prefixed with a two-digit number (`"01 ·
+Zone 1"`, `"09 · Schedule cycle"`, `"12 · Clear schedule"`, …) purely so the
+default device page's alphabetically-sorted Controls card lands in a sane
+order — zone switches first, then the schedule editor fields, then the
+Clear/Save/Refresh buttons last. Entity IDs are unaffected (still
+`switch.zone_1`, `button.save_schedule`, etc.) — only the friendly name
+shown in the UI has the prefix.
 
 ---
 
@@ -140,10 +147,13 @@ write a schedule straight to the device without calling a service by hand:
 1. Set `text.schedule_zones` to the target zone(s): `"2"`, `"1,3"`, or `"all"`.
 2. Set `number.schedule_duration` (minutes) and `text.schedule_start_times`
    (up to 6 comma-separated `HH:MM`, e.g. `"06:30, 18:00"`).
-3. Toggle `switch.schedule_obey_rain_sensor` as needed.
-4. Press `button.save_schedule` to write it (every day — this simple editor
-   doesn't expose `cycle_type`; use `iic400.set_schedule` below for odd/even/
-   weekday/interval cycles).
+3. Set `select.schedule_cycle` — `All days`, `Odd days`, `Even days`, or
+   `Every N days` (uses `number.schedule_interval_days`, counting from
+   today). Custom weekday combos (e.g. Mon/Wed/Fri) or an interval starting
+   on a specific date aren't representable in the dropdown — use
+   `iic400.set_schedule` below for those.
+4. Toggle `switch.schedule_obey_rain_sensor` as needed.
+5. Press `button.save_schedule` to write it.
 
 Press `button.clear_schedule` at any time to disable the schedule for the
 zone(s) currently in `text.schedule_zones` — it ignores the other fields.
