@@ -12,24 +12,16 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from .const import (
     CONF_DEVICE_ID,
     DEFAULT_FAILSAFE_MINUTES,
-    DEFAULT_SCHEDULE_DURATION_MINUTES,
     DOMAIN,
     MAX_FAILSAFE_MINUTES,
-    MAX_SCHEDULE_DURATION_MINUTES,
     MIN_FAILSAFE_MINUTES,
-    MIN_SCHEDULE_DURATION_MINUTES,
 )
 from .coordinator import Iic400Coordinator
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     coordinator: Iic400Coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    async_add_entities(
-        [
-            Iic400FailsafeMinutesNumber(entry, coordinator),
-            Iic400ScheduleDurationNumber(entry, coordinator),
-        ]
-    )
+    async_add_entities([Iic400FailsafeMinutesNumber(entry, coordinator)])
 
 
 class Iic400FailsafeMinutesNumber(RestoreEntity, NumberEntity):
@@ -67,45 +59,4 @@ class Iic400FailsafeMinutesNumber(RestoreEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         self._coordinator.failsafe_minutes = value
-        self.async_write_ha_state()
-
-
-class Iic400ScheduleDurationNumber(RestoreEntity, NumberEntity):
-    """Duration field of the shared 'new schedule' form (see text.py) - one
-    instance for all zones, not per-zone."""
-
-    _attr_has_entity_name = True
-    _attr_name = "08 · Schedule duration"
-    _attr_icon = "mdi:timer-cog-outline"
-    _attr_suggested_object_id = "schedule_duration"
-    _attr_native_min_value = MIN_SCHEDULE_DURATION_MINUTES
-    _attr_native_max_value = MAX_SCHEDULE_DURATION_MINUTES
-    _attr_native_step = 1
-    _attr_native_unit_of_measurement = "min"
-    _attr_mode = NumberMode.BOX
-
-    def __init__(self, entry: ConfigEntry, coordinator: Iic400Coordinator):
-        self._coordinator = coordinator
-        device_id = entry.data[CONF_DEVICE_ID]
-        self._attr_unique_id = f"{device_id}_schedule_duration"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, device_id)},
-            name=entry.title,
-        )
-
-    @property
-    def native_value(self):
-        return self._coordinator.schedule_form_duration
-
-    async def async_added_to_hass(self):
-        await super().async_added_to_hass()
-        last_state = await self.async_get_last_state()
-        if last_state is not None and last_state.state not in (None, "unknown", "unavailable"):
-            try:
-                self._coordinator.schedule_form_duration = float(last_state.state)
-            except ValueError:
-                self._coordinator.schedule_form_duration = DEFAULT_SCHEDULE_DURATION_MINUTES
-
-    async def async_set_native_value(self, value: float) -> None:
-        self._coordinator.schedule_form_duration = value
         self.async_write_ha_state()

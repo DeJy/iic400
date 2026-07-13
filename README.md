@@ -12,27 +12,28 @@ It gives you, in Home Assistant:
   `tuya-local`'s built-in device library — see `PR_Tuya_local/`.
 - **`custom_components/iic400/`** — a real Home Assistant integration
   (installable via HACS, with a proper "Add Integration" config flow) that
-  drives the two packed-binary Tuya DPs `tuya-local` can't express: DP 45
-  (manual zone start/stop) and DP 38 (on-device schedules). It depends on
-  `tuya-local` already being set up for the device — the config flow picks
-  the existing `tuya-local` entry instead of asking you to re-enter
-  credentials.
+  drives the packed-binary Tuya DP `tuya-local` can't express: DP 45 (manual
+  zone start/stop). It depends on `tuya-local` already being set up for the
+  device — the config flow picks the existing `tuya-local` entry instead of
+  asking you to re-enter credentials. This integration does not read or
+  write the device's on-device schedules (DP 38) — manage watering schedules
+  with Home Assistant automations instead.
 
 ## Why two integrations for one device?
 
 `tuya-local` is excellent at polling/pushing simple scalar DPs and is used
 here for state (is a zone running? is the rain sensor blocking? what mode is
-the device in?). DP 38 and DP 45 are packed binary structures (bitmasks,
-multi-field byte arrays) impractical to express in `tuya-local`'s
-declarative YAML DP mapping, so `custom_components/iic400/` builds and sends
-those payloads directly via `tinytuya`. Both integrations talk to the device
-over the same local Tuya protocol; nothing leaves your LAN at runtime.
+the device in?). DP 45 is a packed binary structure (bitmasks, multi-field
+byte array) impractical to express in `tuya-local`'s declarative YAML DP
+mapping, so `custom_components/iic400/` builds and sends that payload
+directly via `tinytuya`. Both integrations talk to the device over the same
+local Tuya protocol; nothing leaves your LAN at runtime.
 
 ## Repository layout
 
 ```
 inkbird_iic400_wifi.yaml        tuya-local custom device profile (being upstreamed)
-custom_components/iic400/       HA integration: config flow, switches, sensors, services
+custom_components/iic400/       HA integration: config flow, switches, services
 hacs.json                       HACS custom-repository manifest
 PR_Tuya_local/                  working materials for the tuya-local upstream PR
 ```
@@ -92,24 +93,13 @@ You should now have, under a new **"IIC-400 Irrigation"** device:
   the real device (not assumed from our own commands).
 - `number.zone_switch_failsafe_duration` — safety-net duration for the
   switches (see below).
-- `sensor.zone_1_schedule` … `sensor.zone_4_schedule` — last-known on-device
-  schedule per zone (passively captured, not polled).
-- A shared **schedule editor** (one instance, applies to whichever zone(s) you
-  name in it — not per-zone): `text.schedule_zones`,
-  `text.schedule_start_times`, `number.schedule_duration`,
-  `text.schedule_cycle`, `switch.schedule_obey_rain_sensor`,
-  `button.clear_schedule`, `button.save_schedule`,
-  `button.refresh_schedules_from_device` (see below).
-- Services `iic400.set_schedule`, `iic400.clear_schedule`,
-  `iic400.quick_water` (see below).
+- Service `iic400.quick_water` (see below).
 
 Each entity's display name is prefixed with a two-digit number (`"01 ·
-Zone 1"`, `"09 · Schedule cycle"`, `"11 · Clear schedule"`, …) purely so the
-default device page's alphabetically-sorted Controls card lands in a sane
-order — zone switches first, then the schedule editor fields, then the
-Clear/Save/Refresh buttons last. Entity IDs are unaffected (still
-`switch.zone_1`, `button.save_schedule`, etc.) — only the friendly name
-shown in the UI has the prefix.
+Zone 1"`, `"05 · Zone switch failsafe duration"`, …) purely so the default
+device page's alphabetically-sorted Controls card lands in a sane order.
+Entity IDs are unaffected (still `switch.zone_1`, etc.) — only the friendly
+name shown in the UI has the prefix.
 
 ---
 
@@ -141,39 +131,10 @@ doesn't touch the zone switches' state.
 
 ### Schedules
 
-**Editing from the dashboard** — the shared schedule editor entities let you
-write a schedule straight to the device without calling a service by hand:
-
-1. Set `text.schedule_zones` to the target zone(s): `"2"`, `"1,3"`, or `"all"`.
-2. Set `number.schedule_duration` (minutes) and `text.schedule_start_times`
-   (up to 6 comma-separated `HH:MM`, e.g. `"06:30, 18:00"`).
-3. Set `text.schedule_cycle`: `"days:all"`, `"days:Monday,Wednesday,Friday"`
-   (full names or 3-letter abbreviations, case-insensitive), `"odd"`,
-   `"even"`, or `"interval:N"` / `"interval:N:YYYY-MM-DD"` (every N days,
-   optionally starting from a specific date instead of today).
-4. Toggle `switch.schedule_obey_rain_sensor` as needed.
-5. Press `button.save_schedule` to write it.
-
-Press `button.clear_schedule` at any time to disable the schedule for the
-zone(s) currently in `text.schedule_zones` — it ignores the other fields.
-
-These entities are a single shared form (not one per zone): whatever is
-currently in `text.schedule_zones` is what the next Save/Clear press applies
-to, so double-check it before pressing either button.
-
-**Editing via service call** — same capability as the dashboard editor above,
-for use in scripts/automations instead of pressing a button:
-
-- `iic400.set_schedule` — `zones` (`"2"`, `"1,3"`, or `"all"`),
-  `duration_minutes`, `start_times` (up to 6 comma-separated `HH:MM`),
-  `cycle_type` (same format as `text.schedule_cycle` above: `all` | `days:all`
-  | comma-separated weekdays e.g. `days:mon,wed,fri` | `odd` | `even` |
-  `interval:N` or `interval:N:YYYY-MM-DD`), `rain_obey` (bool).
-- `iic400.clear_schedule` — `zones` only, disables the schedule for them.
-- `sensor.zone_N_schedule` reflects the last schedule block the device has
-  spontaneously reported — it doesn't poll, so it may show `unknown` until
-  the device pushes one (press **Refresh schedules from device** to prompt
-  it).
+This integration does not read or write the device's on-device schedules
+(DP 38). Use Home Assistant automations (e.g. time triggers calling
+`switch.turn_on`/`switch.turn_off` on `switch.zone_1..4`, or the Smart
+Irrigation integration above) to manage watering schedules instead.
 
 ### Rain sensor
 
@@ -192,7 +153,6 @@ blocks irrigation. Turn it off if you don't have a sensor installed.
 | `switch.zone_N` stuck unavailable / wrong on-off state | The "zones running" sensor picked during setup doesn't match reality — remove and re-add this integration, and pick the correct sensor in the second config-flow step. |
 | A Smart Irrigation zone cuts off mid-run | `number.zone_switch_failsafe_duration` is set lower than that zone's calculated duration — raise it. |
 | Two zones' watering stops together unexpectedly | You (or an automation) started more than one zone at once — DP 45's stop halts all manual zones together by device design. Only run one zone at a time. |
-| Schedule sensors stuck on `unknown` | Cache not populated yet — press **Refresh schedules from device** and retry; the device only *pushes* DP 38, it doesn't reliably answer a synchronous query. The refresh now waits up to a few seconds and checks both the immediate device reply and any follow-up push, but a device that has never had a schedule written to a zone has nothing to report yet — write one (Save schedule) first. |
 
 ---
 
