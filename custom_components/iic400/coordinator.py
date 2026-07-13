@@ -13,7 +13,14 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt as dt_util
 
-from .const import DEFAULT_FAILSAFE_MINUTES, DOMAIN, ZONE_COUNT
+from .const import (
+    DEFAULT_FAILSAFE_MINUTES,
+    DEFAULT_SCHEDULE_DURATION_MINUTES,
+    DEFAULT_SCHEDULE_START_TIMES,
+    DEFAULT_SCHEDULE_ZONES,
+    DOMAIN,
+    ZONE_COUNT,
+)
 from .tuya_client import Iic400TuyaClient
 from . import tuya_dp
 
@@ -33,6 +40,14 @@ class Iic400Coordinator(DataUpdateCoordinator):
         # at a time, so a switch turning on/off needs to optimistically flip
         # its siblings too, not just itself - this is how they find each other.
         self.zone_switches = []
+        # Shared "new schedule" form fields (one instance for all zones, not
+        # per-zone) - written by text.py/number.py/switch.py entities, read by
+        # button.py's Save/Clear buttons. Same cross-platform-lookup-avoidance
+        # pattern as failsafe_minutes above.
+        self.schedule_form_zones = DEFAULT_SCHEDULE_ZONES
+        self.schedule_form_start_times = DEFAULT_SCHEDULE_START_TIMES
+        self.schedule_form_duration = DEFAULT_SCHEDULE_DURATION_MINUTES
+        self.schedule_form_rain_obey = True
         self.data = {"schedules": {z: None for z in range(1, ZONE_COUNT + 1)},
                       "last_schedule_update": None}
 
@@ -103,3 +118,28 @@ class Iic400Coordinator(DataUpdateCoordinator):
             await self.hass.async_add_executor_job(
                 self.client.send_schedule, hex_payload
             )
+
+    async def async_write_schedule(
+        self, zones_str, duration_minutes, start_times_str, cycle_type="all", rain_obey=True
+    ):
+        """Build and send a DP 38 block. Shared by the iic400.set_schedule
+        service and the "Save schedule" button - keeps the byte-building
+        logic in exactly one place."""
+        mask, _zones = tuya_dp.zones_to_mask(zones_str)
+        block = tuya_dp.build_block(
+            mask,
+            int(duration_minutes),
+            start_times_str,
+            cycle_type,
+            "obey" if rain_obey else "ignore",
+        )
+        await self.async_send_schedule(bytes(block).hex().upper())
+        await self.async_request_schedule_refresh()
+
+    async def async_clear_schedule(self, zones_str):
+        """Disable the schedule for the given zones. Shared by the
+        iic400.clear_schedule service and the "Clear schedule" button."""
+        mask, _zones = tuya_dp.zones_to_mask(zones_str)
+        block = tuya_dp.build_block(mask, 0, "", "all", "obey")
+        await self.async_send_schedule(bytes(block).hex().upper())
+        await self.async_request_schedule_refresh()

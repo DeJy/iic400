@@ -19,6 +19,14 @@ DEFAULT_FAILSAFE_MINUTES = 180
 MIN_FAILSAFE_MINUTES = 1
 MAX_FAILSAFE_MINUTES = 1440
 
+# Defaults for the shared "new schedule" form entities (one instance for all
+# zones, not per-zone) - see text.py/number.py/switch.py/button.py.
+DEFAULT_SCHEDULE_ZONES = "1"
+DEFAULT_SCHEDULE_START_TIMES = "06:00"
+DEFAULT_SCHEDULE_DURATION_MINUTES = 10
+MIN_SCHEDULE_DURATION_MINUTES = 1
+MAX_SCHEDULE_DURATION_MINUTES = 99
+
 # Debounce, mirrors the old template binary_sensor delay_on/delay_off - smooths
 # over tuya-local reconnect blips right after we write a DP. Switch turn_on/
 # turn_off set state optimistically first, so this delay is purely a

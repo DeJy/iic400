@@ -24,7 +24,7 @@ from . import tuya_dp
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["switch", "number", "sensor", "button"]
+PLATFORMS = ["switch", "number", "sensor", "button", "text"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -74,23 +74,17 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
     async def _set_schedule(call: ServiceCall) -> None:
         coordinator = _coordinator_for_device(hass, call.data["device_id"])
-        mask, zones = tuya_dp.zones_to_mask(call.data["zones"])
-        block = tuya_dp.build_block(
-            mask,
-            int(call.data["duration_minutes"]),
+        await coordinator.async_write_schedule(
+            call.data["zones"],
+            call.data["duration_minutes"],
             call.data["start_times"],
             call.data.get("cycle_type", "all"),
-            "obey" if call.data.get("rain_obey", True) else "ignore",
+            call.data.get("rain_obey", True),
         )
-        await coordinator.async_send_schedule(bytes(block).hex().upper())
-        await coordinator.async_request_schedule_refresh()
 
     async def _clear_schedule(call: ServiceCall) -> None:
         coordinator = _coordinator_for_device(hass, call.data["device_id"])
-        mask, zones = tuya_dp.zones_to_mask(call.data["zones"])
-        block = tuya_dp.build_block(mask, 0, "", "all", "obey")
-        await coordinator.async_send_schedule(bytes(block).hex().upper())
-        await coordinator.async_request_schedule_refresh()
+        await coordinator.async_clear_schedule(call.data["zones"])
 
     async def _quick_water(call: ServiceCall) -> None:
         coordinator = _coordinator_for_device(hass, call.data["device_id"])

@@ -96,6 +96,11 @@ You should now have, under a new **"IIC-400 Irrigation"** device:
   schedule per zone (passively captured, not polled).
 - `button.refresh_schedules_from_device` — prompts the device to report its
   current schedules.
+- A shared **schedule editor** (one instance, applies to whichever zone(s) you
+  name in it — not per-zone): `text.schedule_zones`,
+  `text.schedule_start_times`, `number.schedule_duration`,
+  `switch.schedule_obey_rain_sensor`, `button.save_schedule`,
+  `button.clear_schedule` (see below).
 - Services `iic400.set_schedule`, `iic400.clear_schedule`,
   `iic400.quick_water` (see below).
 
@@ -128,6 +133,26 @@ that the device times and stops itself — no explicit stop needed, and it
 doesn't touch the zone switches' state.
 
 ### Schedules
+
+**Editing from the dashboard** — the shared schedule editor entities let you
+write a schedule straight to the device without calling a service by hand:
+
+1. Set `text.schedule_zones` to the target zone(s): `"2"`, `"1,3"`, or `"all"`.
+2. Set `number.schedule_duration` (minutes) and `text.schedule_start_times`
+   (up to 6 comma-separated `HH:MM`, e.g. `"06:30, 18:00"`).
+3. Toggle `switch.schedule_obey_rain_sensor` as needed.
+4. Press `button.save_schedule` to write it (every day — this simple editor
+   doesn't expose `cycle_type`; use `iic400.set_schedule` below for odd/even/
+   weekday/interval cycles).
+
+Press `button.clear_schedule` at any time to disable the schedule for the
+zone(s) currently in `text.schedule_zones` — it ignores the other fields.
+
+These entities are a single shared form (not one per zone): whatever is
+currently in `text.schedule_zones` is what the next Save/Clear press applies
+to, so double-check it before pressing either button.
+
+**Editing via service call** — for cycle types beyond "every day":
 
 - `iic400.set_schedule` — `zones` (`"2"`, `"1,3"`, or `"all"`),
   `duration_minutes`, `start_times` (up to 6 comma-separated `HH:MM`),

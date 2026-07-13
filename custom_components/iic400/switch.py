@@ -43,6 +43,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
@@ -61,9 +62,9 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
     coordinator: Iic400Coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    entities = [Iic400ZoneSwitch(entry, coordinator, zone) for zone in range(1, ZONE_COUNT + 1)]
-    coordinator.zone_switches = entities
-    async_add_entities(entities)
+    zone_switches = [Iic400ZoneSwitch(entry, coordinator, zone) for zone in range(1, ZONE_COUNT + 1)]
+    coordinator.zone_switches = zone_switches
+    async_add_entities(zone_switches + [Iic400ScheduleRainObeySwitch(entry, coordinator)])
 
 
 class Iic400ZoneSwitch(CoordinatorEntity, SwitchEntity):
@@ -178,3 +179,41 @@ class Iic400ZoneSwitch(CoordinatorEntity, SwitchEntity):
     async def async_turn_off(self, **kwargs):
         payload = tuya_dp.build_stop()
         await self._send(payload, None)
+
+
+class Iic400ScheduleRainObeySwitch(RestoreEntity, SwitchEntity):
+    """Rain-obey field of the shared 'new schedule' form (see text.py) - one
+    instance for all zones, not per-zone. Plain on/off toggle backed by
+    coordinator state, not device state - it only takes effect once "Save
+    schedule" is pressed."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Schedule obey rain sensor"
+    _attr_icon = "mdi:weather-rainy"
+
+    def __init__(self, entry: ConfigEntry, coordinator: Iic400Coordinator):
+        self._coordinator = coordinator
+        device_id = entry.data[CONF_DEVICE_ID]
+        self._attr_unique_id = f"{device_id}_schedule_rain_obey"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, device_id)},
+            name=entry.title,
+        )
+
+    @property
+    def is_on(self):
+        return self._coordinator.schedule_form_rain_obey
+
+    async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+        last_state = await self.async_get_last_state()
+        if last_state is not None and last_state.state in ("on", "off"):
+            self._coordinator.schedule_form_rain_obey = last_state.state == "on"
+
+    async def async_turn_on(self, **kwargs):
+        self._coordinator.schedule_form_rain_obey = True
+        self.async_write_ha_state()
+
+    async def async_turn_off(self, **kwargs):
+        self._coordinator.schedule_form_rain_obey = False
+        self.async_write_ha_state()
