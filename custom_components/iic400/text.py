@@ -1,5 +1,5 @@
-"""Shared 'new schedule' form text fields - zones and start times, one
-instance for all zones (not per-zone). Values live on the coordinator
+"""Shared 'new schedule' form text fields - zones, start times, and cycle -
+one instance for all zones (not per-zone). Values live on the coordinator
 (mirrors number.py's failsafe-minutes pattern) so button.py's Save/Clear
 buttons can read them without a fragile cross-platform entity_id lookup.
 """
@@ -19,6 +19,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         [
             Iic400ScheduleZonesText(entry, coordinator),
             Iic400ScheduleStartTimesText(entry, coordinator),
+            Iic400ScheduleCycleText(entry, coordinator),
         ]
     )
 
@@ -72,3 +73,20 @@ class Iic400ScheduleStartTimesText(_ScheduleFormText):
         super().__init__(entry, coordinator)
         device_id = entry.data[CONF_DEVICE_ID]
         self._attr_unique_id = f"{device_id}_schedule_start_times"
+
+
+class Iic400ScheduleCycleText(_ScheduleFormText):
+    """Cycle-type field of the shared 'new schedule' form. Free text passed
+    straight through to tuya_dp.parse_mode as cycle_type - see its
+    docstring: "days:all", "days:Monday,Wednesday,Friday" (or 3-letter
+    abbreviations), "odd", "even", or "interval:N[:YYYY-MM-DD]"."""
+
+    _attr_name = "09 · Schedule cycle"
+    _attr_icon = "mdi:calendar-sync-outline"
+    _attr_suggested_object_id = "schedule_cycle"
+    _coordinator_attr = "schedule_form_cycle"
+
+    def __init__(self, entry: ConfigEntry, coordinator: Iic400Coordinator):
+        super().__init__(entry, coordinator)
+        device_id = entry.data[CONF_DEVICE_ID]
+        self._attr_unique_id = f"{device_id}_schedule_cycle"

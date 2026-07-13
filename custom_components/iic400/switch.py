@@ -189,7 +189,7 @@ class Iic400ScheduleRainObeySwitch(RestoreEntity, SwitchEntity):
     schedule" is pressed."""
 
     _attr_has_entity_name = True
-    _attr_name = "11 · Schedule obey rain sensor"
+    _attr_name = "10 · Schedule obey rain sensor"
     _attr_icon = "mdi:weather-rainy"
     _attr_suggested_object_id = "schedule_obey_rain_sensor"
 

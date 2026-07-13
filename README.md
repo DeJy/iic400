@@ -97,14 +97,14 @@ You should now have, under a new **"IIC-400 Irrigation"** device:
 - A shared **schedule editor** (one instance, applies to whichever zone(s) you
   name in it — not per-zone): `text.schedule_zones`,
   `text.schedule_start_times`, `number.schedule_duration`,
-  `select.schedule_cycle`, `number.schedule_interval_days`,
-  `switch.schedule_obey_rain_sensor`, `button.clear_schedule`,
-  `button.save_schedule`, `button.refresh_schedules_from_device` (see below).
+  `text.schedule_cycle`, `switch.schedule_obey_rain_sensor`,
+  `button.clear_schedule`, `button.save_schedule`,
+  `button.refresh_schedules_from_device` (see below).
 - Services `iic400.set_schedule`, `iic400.clear_schedule`,
   `iic400.quick_water` (see below).
 
 Each entity's display name is prefixed with a two-digit number (`"01 ·
-Zone 1"`, `"09 · Schedule cycle"`, `"12 · Clear schedule"`, …) purely so the
+Zone 1"`, `"09 · Schedule cycle"`, `"11 · Clear schedule"`, …) purely so the
 default device page's alphabetically-sorted Controls card lands in a sane
 order — zone switches first, then the schedule editor fields, then the
 Clear/Save/Refresh buttons last. Entity IDs are unaffected (still
@@ -147,11 +147,10 @@ write a schedule straight to the device without calling a service by hand:
 1. Set `text.schedule_zones` to the target zone(s): `"2"`, `"1,3"`, or `"all"`.
 2. Set `number.schedule_duration` (minutes) and `text.schedule_start_times`
    (up to 6 comma-separated `HH:MM`, e.g. `"06:30, 18:00"`).
-3. Set `select.schedule_cycle` — `All days`, `Odd days`, `Even days`, or
-   `Every N days` (uses `number.schedule_interval_days`, counting from
-   today). Custom weekday combos (e.g. Mon/Wed/Fri) or an interval starting
-   on a specific date aren't representable in the dropdown — use
-   `iic400.set_schedule` below for those.
+3. Set `text.schedule_cycle`: `"days:all"`, `"days:Monday,Wednesday,Friday"`
+   (full names or 3-letter abbreviations, case-insensitive), `"odd"`,
+   `"even"`, or `"interval:N"` / `"interval:N:YYYY-MM-DD"` (every N days,
+   optionally starting from a specific date instead of today).
 4. Toggle `switch.schedule_obey_rain_sensor` as needed.
 5. Press `button.save_schedule` to write it.
 
@@ -162,12 +161,14 @@ These entities are a single shared form (not one per zone): whatever is
 currently in `text.schedule_zones` is what the next Save/Clear press applies
 to, so double-check it before pressing either button.
 
-**Editing via service call** — for cycle types beyond "every day":
+**Editing via service call** — same capability as the dashboard editor above,
+for use in scripts/automations instead of pressing a button:
 
 - `iic400.set_schedule` — `zones` (`"2"`, `"1,3"`, or `"all"`),
   `duration_minutes`, `start_times` (up to 6 comma-separated `HH:MM`),
-  `cycle_type` (`all` | comma-separated weekdays e.g. `mon,wed,fri` | `odd` |
-  `even` | `interval:N` or `interval:N:YYYY-MM-DD`), `rain_obey` (bool).
+  `cycle_type` (same format as `text.schedule_cycle` above: `all` | `days:all`
+  | comma-separated weekdays e.g. `days:mon,wed,fri` | `odd` | `even` |
+  `interval:N` or `interval:N:YYYY-MM-DD`), `rain_obey` (bool).
 - `iic400.clear_schedule` — `zones` only, disables the schedule for them.
 - `sensor.zone_N_schedule` reflects the last schedule block the device has
   spontaneously reported — it doesn't poll, so it may show `unknown` until
@@ -191,7 +192,7 @@ blocks irrigation. Turn it off if you don't have a sensor installed.
 | `switch.zone_N` stuck unavailable / wrong on-off state | The "zones running" sensor picked during setup doesn't match reality — remove and re-add this integration, and pick the correct sensor in the second config-flow step. |
 | A Smart Irrigation zone cuts off mid-run | `number.zone_switch_failsafe_duration` is set lower than that zone's calculated duration — raise it. |
 | Two zones' watering stops together unexpectedly | You (or an automation) started more than one zone at once — DP 45's stop halts all manual zones together by device design. Only run one zone at a time. |
-| Schedule sensors stuck on `unknown` | Cache not populated yet — press **Refresh schedules from device** and retry; the device only *pushes* DP 38, it doesn't reliably answer a synchronous query. |
+| Schedule sensors stuck on `unknown` | Cache not populated yet — press **Refresh schedules from device** and retry; the device only *pushes* DP 38, it doesn't reliably answer a synchronous query. The refresh now waits up to a few seconds and checks both the immediate device reply and any follow-up push, but a device that has never had a schedule written to a zone has nothing to report yet — write one (Save schedule) first. |
 
 ---
 

@@ -30,6 +30,13 @@ import base64
 import datetime
 
 DAY_NAMES = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+FULL_DAY_NAMES = [
+    "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
+]
+DAY_NAME_TO_INDEX = {
+    **{name: i for i, name in enumerate(DAY_NAMES)},
+    **{name: i for i, name in enumerate(FULL_DAY_NAMES)},
+}
 CYCLE_NAMES = {0: "custom days", 1: "odd days", 2: "even days", 3: "interval"}
 RAIN_OBEY = 0x11
 RAIN_IGNORE = 0x00
@@ -107,12 +114,21 @@ def parse_hhmm(token):
 
 
 def parse_mode(mode_str):
-    mode = (mode_str or "all").strip().lower()
-    if mode == "odd":
+    """Parse a cycle_type string: "odd", "even", "interval:N[:YYYY-MM-DD]",
+    or a custom-days list - either bare ("all", "mon,wed,fri") or
+    "days:"-prefixed ("days:all", "days:Monday,Wednesday,Friday"; day names
+    are case-insensitive and accept either 3-letter or full English form).
+    The "days:" prefix exists only to make the free-text schedule-cycle
+    entity (see text.py) unambiguous next to "odd"/"even"/"interval:...";
+    both forms are accepted everywhere for backward compatibility.
+    """
+    mode = (mode_str or "all").strip()
+    lower = mode.lower()
+    if lower == "odd":
         return 1, 0, 0, 0, 0
-    if mode == "even":
+    if lower == "even":
         return 2, 0, 0, 0, 0
-    if mode.startswith("interval:"):
+    if lower.startswith("interval:"):
         parts = mode.split(":")
         every = int(parts[1])
         if not 1 <= every <= 99:
@@ -123,13 +139,16 @@ def parse_mode(mode_str):
         else:
             start = datetime.date.today()
         return 3, every, start.year % 100, start.month, start.day
+    days_part = mode[len("days:"):] if lower.startswith("days:") else mode
+    days_part = days_part.strip()
     bitmap = 0
-    days = DAY_NAMES if mode in ("all", "") else mode.split(",")
+    days = DAY_NAMES if days_part.lower() in ("all", "") else days_part.split(",")
     for j in days:
         j = j.strip().lower()
-        if j not in DAY_NAMES:
+        idx = DAY_NAME_TO_INDEX.get(j)
+        if idx is None:
             raise ValueError(f"invalid day: {j}")
-        bitmap |= 1 << DAY_NAMES.index(j)
+        bitmap |= 1 << idx
     return 0, bitmap, 0, 0, 0
 
 

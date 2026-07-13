@@ -44,9 +44,12 @@ class Iic400TuyaClient:
         self._device.set_value("45", payload_b64)
 
     def request_schedule_report(self):
-        """Ask the device to push its current DP 38 blocks."""
+        """Ask the device to push its current DP 38 blocks. Returns whatever
+        tinytuya hands back synchronously - some firmware embeds the DP 38
+        push directly in this reply rather than sending it as a separate
+        later message, so callers must not discard it."""
         self._ensure_connected()
-        self._device.updatedps(["38"])
+        return self._device.updatedps(["38"])
 
     def send_schedule(self, hex_payload):
         """Write a DP 38 payload (uppercase hex string) for one zone block."""

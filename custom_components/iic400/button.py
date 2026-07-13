@@ -22,7 +22,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
 class Iic400RefreshSchedulesButton(ButtonEntity):
     _attr_has_entity_name = True
-    _attr_name = "14 · Refresh schedules from device"
+    _attr_name = "13 · Refresh schedules from device"
     _attr_icon = "mdi:refresh"
     _attr_suggested_object_id = "refresh_schedules_from_device"
 
@@ -45,7 +45,7 @@ class Iic400SaveScheduleButton(ButtonEntity):
     write."""
 
     _attr_has_entity_name = True
-    _attr_name = "13 · Save schedule"
+    _attr_name = "12 · Save schedule"
     _attr_icon = "mdi:content-save-outline"
     _attr_suggested_object_id = "save_schedule"
 
@@ -64,7 +64,7 @@ class Iic400SaveScheduleButton(ButtonEntity):
             c.schedule_form_zones,
             c.schedule_form_duration,
             c.schedule_form_start_times,
-            cycle_type=c.schedule_form_cycle_type,
+            cycle_type=c.schedule_form_cycle,
             rain_obey=c.schedule_form_rain_obey,
         )
 
@@ -74,7 +74,7 @@ class Iic400ClearScheduleButton(ButtonEntity):
     form's "Schedule zones" field (see text.py)."""
 
     _attr_has_entity_name = True
-    _attr_name = "12 · Clear schedule"
+    _attr_name = "11 · Clear schedule"
     _attr_icon = "mdi:calendar-remove-outline"
     _attr_suggested_object_id = "clear_schedule"
 

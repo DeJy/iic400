@@ -17,12 +17,11 @@ from .const import (
     DEFAULT_FAILSAFE_MINUTES,
     DEFAULT_SCHEDULE_CYCLE,
     DEFAULT_SCHEDULE_DURATION_MINUTES,
-    DEFAULT_SCHEDULE_INTERVAL_DAYS,
     DEFAULT_SCHEDULE_START_TIMES,
     DEFAULT_SCHEDULE_ZONES,
     DOMAIN,
-    SCHEDULE_CYCLE_INTERVAL,
-    SCHEDULE_CYCLE_TO_TYPE,
+    SCHEDULE_LISTEN_TIMEOUT,
+    SCHEDULE_REFRESH_WAIT,
     ZONE_COUNT,
 )
 from .tuya_client import Iic400TuyaClient
@@ -45,25 +44,18 @@ class Iic400Coordinator(DataUpdateCoordinator):
         # its siblings too, not just itself - this is how they find each other.
         self.zone_switches = []
         # Shared "new schedule" form fields (one instance for all zones, not
-        # per-zone) - written by text.py/number.py/select.py/switch.py
-        # entities, read by button.py's Save/Clear buttons. Same
-        # cross-platform-lookup-avoidance pattern as failsafe_minutes above.
+        # per-zone) - written by text.py/number.py/switch.py entities, read by
+        # button.py's Save/Clear buttons. Same cross-platform-lookup-avoidance
+        # pattern as failsafe_minutes above. schedule_form_cycle is passed
+        # straight through to tuya_dp.parse_mode as cycle_type - see its
+        # docstring for the accepted formats.
         self.schedule_form_zones = DEFAULT_SCHEDULE_ZONES
         self.schedule_form_start_times = DEFAULT_SCHEDULE_START_TIMES
         self.schedule_form_duration = DEFAULT_SCHEDULE_DURATION_MINUTES
         self.schedule_form_cycle = DEFAULT_SCHEDULE_CYCLE
-        self.schedule_form_interval_days = DEFAULT_SCHEDULE_INTERVAL_DAYS
         self.schedule_form_rain_obey = True
         self.data = {"schedules": {z: None for z in range(1, ZONE_COUNT + 1)},
                       "last_schedule_update": None}
-
-    @property
-    def schedule_form_cycle_type(self):
-        """schedule_form_cycle (a display option) translated to the
-        cycle_type string tuya_dp.parse_mode expects."""
-        if self.schedule_form_cycle == SCHEDULE_CYCLE_INTERVAL:
-            return f"interval:{int(self.schedule_form_interval_days)}"
-        return SCHEDULE_CYCLE_TO_TYPE.get(self.schedule_form_cycle, "all")
 
     async def _async_update_data(self):
         # Connectivity check only - schedule data arrives via the listener.
@@ -88,17 +80,27 @@ class Iic400Coordinator(DataUpdateCoordinator):
             try:
                 async with self._lock:
                     data = await self.hass.async_add_executor_job(
-                        self.client.receive, 2
+                        self.client.receive, SCHEDULE_LISTEN_TIMEOUT
                     )
-                if data and isinstance(data, dict):
-                    val = (data.get("dps") or {}).get(38) or (data.get("dps") or {}).get("38")
-                    if val:
-                        self._handle_schedule_payload(val)
+                self._maybe_handle_schedule_data(data)
             except asyncio.CancelledError:
                 raise
             except Exception as err:  # noqa: BLE001 - keep the listener alive
                 _LOGGER.debug("iic400: listener error, continuing: %s", err)
                 await asyncio.sleep(1)
+
+    def _maybe_handle_schedule_data(self, data):
+        """Look for a DP 38 block in a raw tinytuya response and, if found,
+        update the cache. Returns True if one was found. Shared by the
+        background listener and async_request_schedule_refresh, which also
+        needs to inspect synchronous replies - see its docstring for why."""
+        if not data or not isinstance(data, dict):
+            return False
+        val = (data.get("dps") or {}).get(38) or (data.get("dps") or {}).get("38")
+        if not val:
+            return False
+        self._handle_schedule_payload(val)
+        return True
 
     def _handle_schedule_payload(self, hexstr):
         decoded = tuya_dp.decode_block(hexstr)
@@ -116,10 +118,28 @@ class Iic400Coordinator(DataUpdateCoordinator):
         self.async_set_updated_data(self.data)
 
     async def async_request_schedule_refresh(self, zone=None):
+        """Prompt the device for its DP 38 blocks and wait briefly for the
+        result. Some firmware embeds the pushed blocks directly in the
+        updatedps() ack; others send them as separate later messages - this
+        previously discarded the ack's return value entirely and relied on
+        the background listener to independently catch a follow-up push
+        that, on some firmware, never comes (the device only replies once,
+        inside the ack). Now checks the ack first, then polls with the same
+        short timeout the listener uses, up to SCHEDULE_REFRESH_WAIT total,
+        before giving up."""
         async with self._lock:
-            await self.hass.async_add_executor_job(
+            result = await self.hass.async_add_executor_job(
                 self.client.request_schedule_report
             )
+            if self._maybe_handle_schedule_data(result):
+                return
+            attempts = max(1, SCHEDULE_REFRESH_WAIT // SCHEDULE_LISTEN_TIMEOUT)
+            for _ in range(attempts):
+                data = await self.hass.async_add_executor_job(
+                    self.client.receive, SCHEDULE_LISTEN_TIMEOUT
+                )
+                if self._maybe_handle_schedule_data(data):
+                    return
 
     async def async_send_manual(self, payload_b64):
         async with self._lock:

@@ -24,7 +24,7 @@ from . import tuya_dp
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["switch", "number", "sensor", "button", "text", "select"]
+PLATFORMS = ["switch", "number", "sensor", "button", "text"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

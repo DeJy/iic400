@@ -20,38 +20,18 @@ MIN_FAILSAFE_MINUTES = 1
 MAX_FAILSAFE_MINUTES = 1440
 
 # Defaults for the shared "new schedule" form entities (one instance for all
-# zones, not per-zone) - see text.py/number.py/select.py/switch.py/button.py.
+# zones, not per-zone) - see text.py/number.py/switch.py/button.py.
 DEFAULT_SCHEDULE_ZONES = "1"
 DEFAULT_SCHEDULE_START_TIMES = "06:00"
 DEFAULT_SCHEDULE_DURATION_MINUTES = 10
 MIN_SCHEDULE_DURATION_MINUTES = 1
 MAX_SCHEDULE_DURATION_MINUTES = 99
 
-# Schedule cycle select - a simplified front end for iic400.set_schedule's
-# cycle_type string. Covers all/odd/even/interval; custom weekday combos
-# (e.g. "mon,wed,fri") and an interval start date other than today still
-# require the service call - not worth a dropdown option each.
-SCHEDULE_CYCLE_ALL = "All days"
-SCHEDULE_CYCLE_ODD = "Odd days"
-SCHEDULE_CYCLE_EVEN = "Even days"
-SCHEDULE_CYCLE_INTERVAL = "Every N days"
-SCHEDULE_CYCLE_OPTIONS = [
-    SCHEDULE_CYCLE_ALL,
-    SCHEDULE_CYCLE_ODD,
-    SCHEDULE_CYCLE_EVEN,
-    SCHEDULE_CYCLE_INTERVAL,
-]
-DEFAULT_SCHEDULE_CYCLE = SCHEDULE_CYCLE_ALL
-# Maps the select's display option to tuya_dp.parse_mode's cycle_type prefix.
-# SCHEDULE_CYCLE_INTERVAL is handled separately (needs schedule_form_interval_days).
-SCHEDULE_CYCLE_TO_TYPE = {
-    SCHEDULE_CYCLE_ALL: "all",
-    SCHEDULE_CYCLE_ODD: "odd",
-    SCHEDULE_CYCLE_EVEN: "even",
-}
-DEFAULT_SCHEDULE_INTERVAL_DAYS = 2
-MIN_SCHEDULE_INTERVAL_DAYS = 1
-MAX_SCHEDULE_INTERVAL_DAYS = 99
+# schedule_form_cycle is free text, passed straight through to
+# tuya_dp.parse_mode as cycle_type - see its docstring for the accepted
+# formats (days:all, days:Monday,Wednesday,Friday, odd, even,
+# interval:N[:YYYY-MM-DD]).
+DEFAULT_SCHEDULE_CYCLE = "days:all"
 
 # Debounce, mirrors the old template binary_sensor delay_on/delay_off - smooths
 # over tuya-local reconnect blips right after we write a DP. Switch turn_on/

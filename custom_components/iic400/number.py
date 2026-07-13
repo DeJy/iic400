@@ -13,14 +13,11 @@ from .const import (
     CONF_DEVICE_ID,
     DEFAULT_FAILSAFE_MINUTES,
     DEFAULT_SCHEDULE_DURATION_MINUTES,
-    DEFAULT_SCHEDULE_INTERVAL_DAYS,
     DOMAIN,
     MAX_FAILSAFE_MINUTES,
     MAX_SCHEDULE_DURATION_MINUTES,
-    MAX_SCHEDULE_INTERVAL_DAYS,
     MIN_FAILSAFE_MINUTES,
     MIN_SCHEDULE_DURATION_MINUTES,
-    MIN_SCHEDULE_INTERVAL_DAYS,
 )
 from .coordinator import Iic400Coordinator
 
@@ -31,7 +28,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         [
             Iic400FailsafeMinutesNumber(entry, coordinator),
             Iic400ScheduleDurationNumber(entry, coordinator),
-            Iic400ScheduleIntervalDaysNumber(entry, coordinator),
         ]
     )
 
@@ -112,46 +108,4 @@ class Iic400ScheduleDurationNumber(RestoreEntity, NumberEntity):
 
     async def async_set_native_value(self, value: float) -> None:
         self._coordinator.schedule_form_duration = value
-        self.async_write_ha_state()
-
-
-class Iic400ScheduleIntervalDaysNumber(RestoreEntity, NumberEntity):
-    """N-days field of the shared 'new schedule' form's cycle select (see
-    select.py) - only meaningful when that select is set to "Every N days",
-    ignored otherwise."""
-
-    _attr_has_entity_name = True
-    _attr_name = "10 · Schedule interval days"
-    _attr_icon = "mdi:calendar-refresh-outline"
-    _attr_suggested_object_id = "schedule_interval_days"
-    _attr_native_min_value = MIN_SCHEDULE_INTERVAL_DAYS
-    _attr_native_max_value = MAX_SCHEDULE_INTERVAL_DAYS
-    _attr_native_step = 1
-    _attr_native_unit_of_measurement = "d"
-    _attr_mode = NumberMode.BOX
-
-    def __init__(self, entry: ConfigEntry, coordinator: Iic400Coordinator):
-        self._coordinator = coordinator
-        device_id = entry.data[CONF_DEVICE_ID]
-        self._attr_unique_id = f"{device_id}_schedule_interval_days"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, device_id)},
-            name=entry.title,
-        )
-
-    @property
-    def native_value(self):
-        return self._coordinator.schedule_form_interval_days
-
-    async def async_added_to_hass(self):
-        await super().async_added_to_hass()
-        last_state = await self.async_get_last_state()
-        if last_state is not None and last_state.state not in (None, "unknown", "unavailable"):
-            try:
-                self._coordinator.schedule_form_interval_days = float(last_state.state)
-            except ValueError:
-                self._coordinator.schedule_form_interval_days = DEFAULT_SCHEDULE_INTERVAL_DAYS
-
-    async def async_set_native_value(self, value: float) -> None:
-        self._coordinator.schedule_form_interval_days = value
         self.async_write_ha_state()

@@ -34,7 +34,7 @@ set_schedule:
         text:
     cycle_type:
       name: Cycle
-      description: "all | comma-separated weekdays (mon,wed,fri) | odd | even | interval:N[:YYYY-MM-DD]"
+      description: "all | days:all | days:mon,wed,fri (or full names: days:Monday,Wednesday,Friday) | odd | even | interval:N[:YYYY-MM-DD]"
       default: "all"
       selector:
         text:
