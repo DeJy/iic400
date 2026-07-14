@@ -97,6 +97,8 @@ You should now have, under a new **"IIC-400 Irrigation"** device:
   schedule per zone (passively captured, or actively refreshed — see below).
 - `button.refresh_schedules_from_device` — prompts the device for its
   current schedules; the sensors above show "Pending…" until each answers.
+- `button.clear_all_schedules` — disables the on-device schedule for all 4
+  zones at once.
 - Services `iic400.quick_water`, `iic400.set_schedule`,
   `iic400.clear_schedule` (see below).
 
