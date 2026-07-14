@@ -191,6 +191,29 @@ entities:
         optional: true
 
 # Protocol reference (reverse-engineered and hardware-validated, 2026-07):
+#   DP 38 normal_timer, 20 bytes per block. byte[0] is encoded DIFFERENTLY
+#   on write vs read - confirmed 2026-07-14 by writing individual and
+#   combined zones and watching what came back (custom_components/iic400/
+#   handles this; see its tuya_dp.py for the full writeup):
+#     WRITE byte[0]: zone BITMASK (z1=0x01 z2=0x02 z3=0x04 z4=0x08;
+#             combining bits is valid - the device splits a combined write
+#             into one push per zone on read-back)
+#     READ  byte[0]: plain zone number 1-4 (device-derived from the
+#             bitmask), never a bitmask - e.g. writing 0x08 (zone 4) is
+#             read back as byte[0]=4, not 0x08
+#     [1]     watering duration in minutes (0 = schedule disabled)
+#     [2-7]   6 start HOURS (0-23), 0xFF = slot unused
+#     [8-13]  6 start MINUTES (0-59), index-aligned with hours
+#     [14]    cycle: 0=custom days, 1=odd days, 2=even days, 3=interval
+#     [15]    weekday bitmap (bit0=Mon..bit6=Sun, 0x7F=all) for cycle 0,
+#             day count for cycle 3, 0x00 for odd/even
+#     [16-18] interval start date: YEAR-2000, MONTH, DAY (else 00 00 00)
+#     [19]    rain sensor: 0x11 = obey, 0x00 = ignore
+#   DP 38 has no per-zone query - the device pushes whichever zone-group
+#   blocks it feels like, on its own schedule (not reliably synchronous;
+#   zone 4 in particular has been observed taking 60-80s to answer a
+#   refresh request). The internal schedule clock is synced by the Inkbird
+#   app only; without the app it free-runs.
 #   DP 45 irrigation_time_all: manual start, raw 18 bytes (base64):
 #     [0]=1 start/reset, [1]=1 specific zones,
 #     [2-9] run time per zone (2 bytes BE, minutes, z1..z4),

@@ -14,7 +14,9 @@ from .const import (
     CONF_LOCAL_KEY,
     CONF_PROTOCOL_VERSION,
     DOMAIN,
+    SERVICE_CLEAR_SCHEDULE,
     SERVICE_QUICK_WATER,
+    SERVICE_SET_SCHEDULE,
 )
 from .coordinator import Iic400Coordinator
 from .tuya_client import Iic400TuyaClient
@@ -22,7 +24,7 @@ from . import tuya_dp
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = ["switch", "number"]
+PLATFORMS = ["switch", "number", "sensor", "button"]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -35,6 +37,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     coordinator = Iic400Coordinator(hass, client)
     await coordinator.async_config_entry_first_refresh()
+    coordinator.async_start_listener()
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = {"coordinator": coordinator, "client": client}
@@ -48,6 +51,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         stored = hass.data[DOMAIN].pop(entry.entry_id)
+        await stored["coordinator"].async_stop_listener()
         stored["client"].close()
     return unloaded
 
@@ -75,6 +79,20 @@ def _async_register_services(hass: HomeAssistant) -> None:
         durations[zone - 1] = int(call.data["duration_minutes"])
         await coordinator.async_send_manual(tuya_dp.build_manual(durations))
 
+    async def _set_schedule(call: ServiceCall) -> None:
+        coordinator = _coordinator_for_device(hass, call.data["device_id"])
+        await coordinator.async_write_schedule(
+            call.data["zones"],
+            call.data["duration_minutes"],
+            call.data["start_times"],
+            call.data.get("cycle_type", "all"),
+            call.data.get("rain_obey", True),
+        )
+
+    async def _clear_schedule(call: ServiceCall) -> None:
+        coordinator = _coordinator_for_device(hass, call.data["device_id"])
+        await coordinator.async_clear_schedule(call.data["zones"])
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_QUICK_WATER,
@@ -84,6 +102,34 @@ def _async_register_services(hass: HomeAssistant) -> None:
                 vol.Required("device_id"): cv.string,
                 vol.Required("zone"): vol.Coerce(int),
                 vol.Required("duration_minutes"): vol.Coerce(int),
+            },
+            extra=vol.ALLOW_EXTRA,
+        ),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SET_SCHEDULE,
+        _set_schedule,
+        schema=vol.Schema(
+            {
+                vol.Required("device_id"): cv.string,
+                vol.Required("zones"): cv.string,
+                vol.Required("duration_minutes"): vol.Coerce(int),
+                vol.Required("start_times"): cv.string,
+                vol.Optional("cycle_type", default="all"): cv.string,
+                vol.Optional("rain_obey", default=True): cv.boolean,
+            },
+            extra=vol.ALLOW_EXTRA,
+        ),
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_CLEAR_SCHEDULE,
+        _clear_schedule,
+        schema=vol.Schema(
+            {
+                vol.Required("device_id"): cv.string,
+                vol.Required("zones"): cv.string,
             },
             extra=vol.ALLOW_EXTRA,
         ),

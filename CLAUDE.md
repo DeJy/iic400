@@ -11,12 +11,10 @@ controller, built on Tuya's local (LAN-only) protocol. Two parts:
    simple scalar DPs, being upstreamed into `tuya-local`'s built-in device
    library (see `PR_Tuya_local/`). Copy-paste into `/config` until merged.
 2. `custom_components/iic400/` — a real Home Assistant integration (Python,
-   HACS-installable, config-flow-based) for the packed-binary DP
-   `tuya-local` can't express: DP 45 (manual start/stop). This is the part
-   with actual code and logic; treat it like a normal HA custom_component,
-   not a config-only repo. This integration deliberately does not read or
-   write the device's on-device schedules (DP 38) — schedules are the
-   user's responsibility via HA automations, not this integration's job.
+   HACS-installable, config-flow-based) for the two packed-binary DPs
+   `tuya-local` can't express: DP 45 (manual start/stop) and DP 38
+   (on-device schedules). This is the part with actual code and logic;
+   treat it like a normal HA custom_component, not a config-only repo.
 
 There is no test suite for `custom_components/iic400/` beyond manual/hardware
 verification — "testing" a DP-layout change means reasoning carefully about
@@ -32,17 +30,18 @@ needed for that part).
   changes here — see `PR_Tuya_local/` for the upstream effort.
 - [`custom_components/iic400/`](custom_components/iic400/) — the HA
   integration:
-  - `tuya_dp.py` — pure DP 45 byte-packing (no I/O, no HA imports).
+  - `tuya_dp.py` — pure DP 38/DP 45 byte-packing (no I/O, no HA imports).
   - `tuya_client.py` — thin sync wrapper around `tinytuya`; every method is
     blocking and must be called via `hass.async_add_executor_job`.
-  - `coordinator.py` — `DataUpdateCoordinator` used for a one-time
-    connectivity check and to hold small shared state (failsafe minutes,
-    zone switch cross-references); no background listener or polling.
+  - `coordinator.py` — `DataUpdateCoordinator` with a long-lived background
+    listener task (DP 38 is pushed by the device, not polled) plus an
+    explicit refresh flow that marks zones "pending" and actively re-nudges.
   - `config_flow.py` — picks an existing `tuya_local` config entry (no
     manual credential re-entry) and resolves its "zones running" sensor via
     the entity registry.
-  - `switch.py`, `number.py` — entity platforms.
-  - `services.yaml` + handler in `__init__.py` — `quick_water`.
+  - `switch.py`, `number.py`, `sensor.py`, `button.py` — entity platforms.
+  - `services.yaml` + handlers in `__init__.py` — `set_schedule`,
+    `clear_schedule`, `quick_water`.
 - [`hacs.json`](hacs.json) — HACS custom-repository manifest for
   `custom_components/iic400/`.
 - [`PR_Tuya_local/`](PR_Tuya_local/) — working materials for upstreaming
@@ -53,9 +52,9 @@ needed for that part).
 ## Architecture: two integrations, one device
 
 `tuya-local` polls/pushes simple scalar DPs declaratively (device state:
-mode, rain sensor, zones running bitmask). DP 45 is a packed binary
-structure impractical to express in `tuya-local`'s YAML DP mapping, so
-`custom_components/iic400/` builds and sends that payload directly via
+mode, rain sensor, zones running bitmask). DP 38 and DP 45 are packed binary
+structures impractical to express in `tuya-local`'s YAML DP mapping, so
+`custom_components/iic400/` builds and sends those payloads directly via
 `tinytuya`. Both talk to the same device over the same local Tuya protocol;
 nothing leaves the LAN at runtime. This integration **depends on**
 `tuya-local` (see `manifest.json`'s `dependencies`) both for HA's setup
@@ -76,10 +75,32 @@ either from disk or from a hardcoded string.
 
 ### Protocol details
 
-The full DP 45 byte layout is documented in the docstring at the top
+Full DP 38 / DP 45 byte layouts are documented in the docstring at the top
 of [`custom_components/iic400/tuya_dp.py`](custom_components/iic400/tuya_dp.py).
 Key points:
 
+- DP 38 (schedules) is 20 bytes per zone block: byte[0], duration, 6
+  start-time slots (hour/minute arrays), a cycle type (custom days / odd /
+  even / interval), and a rain-obey flag. **byte[0] is encoded differently
+  on write vs read** — empirically confirmed 2026-07-14 against real
+  hardware, not just reverse-engineered from captures like the rest of this
+  layout: on WRITE it's a bitmask (`2**(zone-1)`, multiple bits allowed —
+  a combined write does apply to all requested zones); on READ (device
+  push) it's always a plain zone number 1-4, never a bitmask, and a
+  combined write comes back as one push per zone. Getting this backwards in
+  the decode direction was a real bug caught only because zone 3/4 exposed
+  it — zone 1/2 "worked" under a naive same-encoding-both-ways assumption
+  purely by coincidence, since `2**(1-1)=1` and `2**(2-1)=2` equal their own
+  zone number. DP 38 has no per-zone query — the device pushes whichever
+  zone-group blocks it feels like, on its own schedule, not reliably
+  synchronous; zone 4 in particular has been observed taking 60-80s to
+  answer a refresh request. `coordinator.py` handles this by marking
+  requested zones "pending", re-nudging every
+  `const.SCHEDULE_RENUDGE_INTERVAL`, and updating each zone's sensor the
+  moment its block arrives rather than waiting for the whole
+  `const.SCHEDULE_REFRESH_WAIT` window — the coordinator also keeps a
+  background listener running to passively catch pushes outside of an
+  explicit refresh, since the device pushes on its own regardless.
 - DP 45 (manual run) is 18 bytes, base64-encoded, start/stop for zones. The
   layout in `tuya_dp.py` is hardware-confirmed (2026-07-12): sending it
   flips DP 101 (operation mode) to `"Manual"` on its own and sets the
@@ -126,12 +147,17 @@ tracking even though it would look simpler.
 
 ## Making changes
 
-- If you touch the DP 45 byte layout, it lives in exactly one place now:
-  `custom_components/iic400/tuya_dp.py` (pure functions, no I/O) — no
-  mirrored copy to keep in sync elsewhere.
-- This integration deliberately does not read or write the device's
-  on-device schedules (DP 38) — don't reintroduce schedule reading/writing
-  code here. Watering schedules are managed with HA automations instead.
+- If you touch the DP 38/DP 45 byte layout, it lives in exactly one place
+  now: `custom_components/iic400/tuya_dp.py` (pure functions, no I/O) — no
+  mirrored copy to keep in sync elsewhere. The standalone `scripts/ts.py`
+  (Tuya Cloud API) and `scripts/ts_local.py` (local protocol) CLI tools
+  duplicate this logic in `scripts/dp38.py` for manual testing outside HA —
+  keep the write/read encoding in sync between the two if it ever changes
+  again.
+- Writing schedules goes through the `iic400.set_schedule` /
+  `iic400.clear_schedule` services only — there's no dashboard form for it
+  (unlike the zone switches), to avoid a pile of shared-state text/number
+  entities for a feature that's used occasionally, not per-visit.
 - `custom_components/iic400/` is a real HA custom_component: `manifest.json`
   requirements (`tinytuya`) are auto-installed by HACS/HA — don't reintroduce
   a manual `pip install --target` step or a `sys.path.insert` hack.
