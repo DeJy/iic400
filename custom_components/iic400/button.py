@@ -12,7 +12,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 
-from .const import CONF_DEVICE_ID, DOMAIN
+from .const import CONF_DEVICE_ID, DOMAIN, MANUFACTURER, MODEL
 from .coordinator import Iic400Coordinator
 
 
@@ -39,6 +39,8 @@ class Iic400RefreshSchedulesButton(ButtonEntity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
             name=entry.title,
+            manufacturer=MANUFACTURER,
+            model=MODEL,
         )
 
     async def async_press(self) -> None:
@@ -58,6 +60,8 @@ class Iic400ClearAllSchedulesButton(ButtonEntity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
             name=entry.title,
+            manufacturer=MANUFACTURER,
+            model=MODEL,
         )
 
     async def async_press(self) -> None:

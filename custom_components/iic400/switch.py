@@ -49,6 +49,8 @@ from .const import (
     CONF_DEVICE_ID,
     CONF_ZONES_RUNNING_ENTITY_ID,
     DOMAIN,
+    MANUFACTURER,
+    MODEL,
     ZONE_COUNT,
     ZONE_STATE_DELAY_OFF,
     ZONE_STATE_DELAY_ON,
@@ -83,6 +85,8 @@ class Iic400ZoneSwitch(CoordinatorEntity, SwitchEntity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
             name=entry.title,
+            manufacturer=MANUFACTURER,
+            model=MODEL,
         )
         self._attr_is_on = False
         self._cancel_debounce = None

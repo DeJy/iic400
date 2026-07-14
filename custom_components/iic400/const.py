@@ -3,6 +3,9 @@
 DOMAIN = "iic400"
 TUYA_LOCAL_DOMAIN = "tuya_local"
 
+MANUFACTURER = "Inkbird"
+MODEL = "IIC-400-WIFI"
+
 ZONE_COUNT = 4
 
 DP_MANUAL = "45"

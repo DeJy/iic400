@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_DEVICE_ID, DOMAIN, ZONE_COUNT
+from .const import CONF_DEVICE_ID, DOMAIN, MANUFACTURER, MODEL, ZONE_COUNT
 from .coordinator import PENDING, Iic400Coordinator
 
 
@@ -42,6 +42,8 @@ class Iic400ZoneScheduleSensor(CoordinatorEntity, SensorEntity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
             name=entry.title,
+            manufacturer=MANUFACTURER,
+            model=MODEL,
         )
 
     @property

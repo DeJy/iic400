@@ -1,0 +1,27 @@
+alias: Irrigation séquentielle 3h du matin
+description: >
+  Ouvre les 4 zones d'irrigation une à la fois pendant 15 minutes chacune, avec
+  10 secondes de pause entre chaque zone pour ne pas brusquer le système.
+triggers:
+  - trigger: time
+    at: "03:00:00"
+conditions:
+  - condition: template
+    value_template: "{{ now().timetuple().tm_yday % 2 == 1 }}"
+actions:
+  - repeat:
+      for_each:
+        - 1
+        - 2
+        - 3
+        - 4
+      sequence:
+        - action: iic400.quick_water
+          data:
+            device_id: 00612689bda1757fdfa24b710a6f972c
+            zone: "{{ repeat.item }}"
+            duration_minutes: 15
+        - delay:
+            minutes: 15
+            seconds: 10
+mode: single

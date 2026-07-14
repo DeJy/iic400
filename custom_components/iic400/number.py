@@ -13,8 +13,10 @@ from .const import (
     CONF_DEVICE_ID,
     DEFAULT_FAILSAFE_MINUTES,
     DOMAIN,
+    MANUFACTURER,
     MAX_FAILSAFE_MINUTES,
     MIN_FAILSAFE_MINUTES,
+    MODEL,
 )
 from .coordinator import Iic400Coordinator
 
@@ -42,6 +44,8 @@ class Iic400FailsafeMinutesNumber(RestoreEntity, NumberEntity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, device_id)},
             name=entry.title,
+            manufacturer=MANUFACTURER,
+            model=MODEL,
         )
 
     @property

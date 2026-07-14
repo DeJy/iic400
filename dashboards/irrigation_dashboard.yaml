@@ -1,0 +1,81 @@
+type: vertical-stack
+cards:
+  - type: grid
+    columns: 2
+    square: false
+    cards:
+      - type: tile
+        entity: switch.inkbird_iic_400_irrigation_controller_zone_1
+        name: Zone 1
+        icon: mdi:sprinkler
+      - type: tile
+        entity: switch.inkbird_iic_400_irrigation_controller_zone_2
+        name: Zone 2
+        icon: mdi:sprinkler
+      - type: tile
+        entity: switch.inkbird_iic_400_irrigation_controller_zone_3
+        name: Zone 3
+        icon: mdi:sprinkler
+      - type: tile
+        entity: switch.inkbird_iic_400_irrigation_controller_zone_4
+        name: Zone 4
+        icon: mdi:sprinkler
+  - type: entities
+    title: Zones
+    show_header_toggle: false
+    entities:
+      - entity: sensor.inkbird_iic_400_irrigation_controller_zones_running
+        name: En cours
+      - entity: sensor.inkbird_iic_400_irrigation_controller_zones_pending
+        name: En attente
+      - entity: >-
+          number.inkbird_iic_400_irrigation_controller_zone_switch_failsafe_duration
+        name: Durée de sécurité (failsafe)
+  - type: entities
+    title: Cédules par zone (lecture seule)
+    show_header_toggle: false
+    entities:
+      - entity: sensor.inkbird_iic_400_irrigation_controller_zone_1_schedule
+        name: Zone 1
+      - entity: sensor.inkbird_iic_400_irrigation_controller_zone_2_schedule
+        name: Zone 2
+      - entity: sensor.inkbird_iic_400_irrigation_controller_zone_3_schedule
+        name: Zone 3
+      - entity: sensor.inkbird_iic_400_irrigation_controller_zone_4_schedule
+        name: Zone 4
+  - type: entities
+    title: Gestion des cédules
+    show_header_toggle: false
+    entities:
+      - entity: >-
+          button.inkbird_iic_400_irrigation_controller_refresh_schedules_from_device
+        name: Rafraîchir depuis l'appareil
+      - entity: button.inkbird_iic_400_irrigation_controller_clear_all_schedules
+        name: Tout effacer
+  - type: entities
+    title: État de l'appareil
+    show_header_toggle: false
+    entities:
+      - entity: select.inkbird_iic_400_irrigation_controller_operation_mode
+        name: Mode
+      - entity: switch.inkbird_iic_400_irrigation_controller_rain_sensor_enable
+        name: Capteur de pluie activé
+      - entity: switch.inkbird_iic_400_irrigation_controller_master_valve_enable
+        name: Vanne principale activée
+      - entity: select.inkbird_iic_400_irrigation_controller_zone_sequencing
+        name: Séquençage des zones
+      - entity: number.inkbird_iic_400_irrigation_controller_seasonal_adjustment
+        name: Ajustement saisonnier
+      - entity: binary_sensor.inkbird_iic_400_irrigation_controller_clock_error
+        name: Erreur d'horloge
+  - type: entities
+    title: Automatisation
+    show_header_toggle: false
+    entities:
+      - entity: automation.irrigation_sequentielle_3h_du_matin
+        name: Irrigation séquentielle 3h du matin
+        secondary_info: last-triggered
+  - type: markdown
+    content: >
+      Déclenchement à 3h du matin, tous les 2 jours, pour une durée de 15
+      minutes par zone.
