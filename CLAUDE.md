@@ -121,18 +121,17 @@ Key points:
   device profile — not user-facing state, and DP 110 in particular must not
   be acted on (device shouldn't be power-cycled while it's set).
 
-### Smart Irrigation compatibility (design decision, 2026-07)
+### Zone switch design decision (2026-07)
 
 `switch.zone_1..4` are deliberately plain start/stop controls (no built-in
-duration) so they work as the per-zone `switch` entity in HA's Smart
-Irrigation integration, which turns a zone on, waits its own calculated
-duration, then turns it off itself — it never passes a duration into
-`turn_on`. `turn_on` starts the zone for
-`number.zone_switch_failsafe_duration` (default 180 min) purely as a safety
-net; the real stop is the caller's own `turn_off`. This assumes
-**sequential-only** zone operation (only one zone running at a time) — see
-the stop-all-zones note above for why running zones concurrently isn't
-supported.
+duration) so they work as a generic per-zone `switch` entity for any
+automation that calculates its own watering duration, turns a zone on, waits,
+then turns it off itself — it never passes a duration into `turn_on`.
+`turn_on` starts the zone for `number.zone_switch_failsafe_duration` (default
+180 min) purely as a safety net; the real stop is the caller's own
+`turn_off`. This assumes **sequential-only** zone operation (only one zone
+running at a time) — see the stop-all-zones note above for why running zones
+concurrently isn't supported.
 
 ### Entity state tracking
 

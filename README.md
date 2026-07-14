@@ -34,6 +34,8 @@ over the same local Tuya protocol; nothing leaves your LAN at runtime.
 inkbird_iic400_wifi.yaml        tuya-local custom device profile (being upstreamed)
 custom_components/iic400/       HA integration: config flow, switches, sensors, services
 scripts/                        standalone CLI tools for manual DP 38 testing (see below)
+automation/                     example Home Assistant automations (see below)
+dashboards/                     example Lovelace dashboard for the device's entities
 hacs.json                       HACS custom-repository manifest
 PR_Tuya_local/                  working materials for the tuya-local upstream PR
 ```
@@ -113,29 +115,68 @@ prefix.
 
 ## Usage notes
 
-### Zone switches — start/stop, for Smart Irrigation
+### Zone switches — start/stop, for your own automations
 
 `switch.zone_1..4` have no built-in duration — they're meant for automations
-that time the run themselves and call `turn_off` when done, in particular
-[Smart Irrigation](https://github.com/jeroenterheerdt/HAsmartirrigation)
-(HACS), which calculates each zone's duration from weather data, turns the
-zone's switch on, waits, then turns it off.
+that calculate their own watering duration, turn the zone's switch on, wait,
+then turn it off themselves.
 
 - `turn_on` starts the zone for `number.zone_switch_failsafe_duration`
-  (default 180 min) — a safety net in case `turn_off` is ever missed (e.g. an
+  (default 15 min) — a safety net in case `turn_off` is ever missed (e.g. an
   HA restart mid-run), not the normal way a run ends.
 - `turn_off` sends the DP 45 stop command, which **stops every manual zone
   at once** — a device firmware limitation, not a choice made here. There is
   no verified way to stop a single zone while others keep running.
-- **Only run one zone at a time.** This is Smart Irrigation's default
-  behavior (sequential, one zone after another) — don't configure it (or any
-  automation) to run IIC-400 zones concurrently.
+- **Only run one zone at a time.** Don't configure an automation to run
+  IIC-400 zones concurrently.
 
 ### Quick water — fixed duration, self-timed
 
 Call `iic400.quick_water` (zone, duration_minutes) for a one-off manual run
 that the device times and stops itself — no explicit stop needed, and it
 doesn't touch the zone switches' state.
+
+#### Example automation
+
+[`automation/irrigation_automation.yaml`](automation/irrigation_automation.yaml)
+runs all 4 zones sequentially with `iic400.quick_water`, one after another,
+every other day at 3 AM:
+
+```yaml
+alias: Sequential irrigation at 3 AM
+description: >
+  Opens each of the 4 irrigation zones one at a time for 15 minutes, with a
+  10-second pause between zones so the system isn't switched too abruptly.
+triggers:
+  - trigger: time
+    at: "03:00:00"
+conditions:
+  - condition: template
+    value_template: "{{ now().timetuple().tm_yday % 2 == 1 }}"
+actions:
+  - repeat:
+      for_each:
+        - 1
+        - 2
+        - 3
+        - 4
+      sequence:
+        - action: iic400.quick_water
+          data:
+            device_id: <your_iic400_device_id>
+            zone: "{{ repeat.item }}"
+            duration_minutes: 15
+        - delay:
+            minutes: 15
+            seconds: 10
+mode: single
+```
+
+Because `quick_water` is self-timed by the device, the automation only needs
+to `delay` roughly as long as the watering itself before moving to the next
+zone — no `turn_off` call required, and this pattern is safe even though only
+one zone should ever run at once (the `delay` guarantees the previous zone
+has already stopped before the next one starts).
 
 ### Schedules
 
@@ -184,7 +225,7 @@ blocks irrigation. Turn it off if you don't have a sensor installed.
 | "Add Integration" doesn't offer Inkbird IIC-400 Irrigation | HACS install didn't complete or HA wasn't restarted after installing it. |
 | Config flow aborts with "No tuya-local devices found" | Set up `tuya-local` and add the IIC-400 to it first (Step 1). |
 | `switch.zone_N` stuck unavailable / wrong on-off state | The "zones running" sensor picked during setup doesn't match reality — remove and re-add this integration, and pick the correct sensor in the second config-flow step. |
-| A Smart Irrigation zone cuts off mid-run | `number.zone_switch_failsafe_duration` is set lower than that zone's calculated duration — raise it. |
+| An automated zone cuts off mid-run | `number.zone_switch_failsafe_duration` is set lower than that zone's calculated duration — raise it. |
 | Two zones' watering stops together unexpectedly | You (or an automation) started more than one zone at once — DP 45's stop halts all manual zones together by device design. Only run one zone at a time. |
 | `sensor.zone_N_schedule` stuck on `"Pending…"` | DP 38 has no per-zone query — give it up to 90s, zone 4 especially. Still stuck after that: no schedule may have ever been written to that zone (try `iic400.set_schedule` on it once), or check with `scripts/ts_local.py read --timeout 90` for a lower-level view. |
 

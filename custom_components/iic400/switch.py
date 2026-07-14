@@ -19,9 +19,9 @@ that's discouraged above - it's a prediction that the real tracking still
 verifies, not a replacement for it.
 
 turn_on starts ONLY the targeted zone, using coordinator.failsafe_minutes as a
-safety-net duration (Smart Irrigation - and any similar automation - times the
-run itself and calls turn_off; the failsafe just guards against a missed
-turn_off, e.g. an HA restart mid-run).
+safety-net duration (the calling automation times the run itself and calls
+turn_off; the failsafe just guards against a missed turn_off, e.g. an HA
+restart mid-run).
 
 turn_off sends the DP 45 stop-all command. This is a hardware limitation, not
 a choice: DP 45's stop halts every manual zone at once, there is no verified
