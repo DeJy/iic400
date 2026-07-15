@@ -2,10 +2,12 @@
 passively-captured-or-refreshed DP 38 cache - never opens a device
 connection on their own.
 
-Each sensor shows one of three states:
-  - "Unknown"  - never read since HA started (no refresh done yet, and the
-                 device hasn't spontaneously pushed this zone's block)
-  - "Pending…" - a refresh is in progress and this zone hasn't answered yet
+Each sensor shows one of four states:
+  - "Unknown"   - never read since HA started (no refresh done yet, and the
+                  device hasn't spontaneously pushed this zone's block)
+  - "Pending…"  - a refresh is in progress and this zone hasn't answered yet
+  - "Try Again" - a refresh timed out after SCHEDULE_REFRESH_WAIT without an
+                  answer for this zone
   - the schedule summary text (e.g. "10 min @ 06:00 - every day") once known
 """
 from homeassistant.components.sensor import SensorEntity
@@ -15,7 +17,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_DEVICE_ID, DOMAIN, MANUFACTURER, MODEL, ZONE_COUNT
-from .coordinator import PENDING, Iic400Coordinator
+from .coordinator import PENDING, TRY_AGAIN, Iic400Coordinator
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities):
@@ -53,11 +55,13 @@ class Iic400ZoneScheduleSensor(CoordinatorEntity, SensorEntity):
             return "Unknown"
         if block == PENDING:
             return "Pending…"
+        if block == TRY_AGAIN:
+            return "Try Again"
         return block["summary"]
 
     @property
     def extra_state_attributes(self):
         block = self.coordinator.data["schedules"].get(self._zone)
-        if not block or block == PENDING:
+        if not block or block in (PENDING, TRY_AGAIN):
             return {}
         return {"raw": block["raw"], "updated_at": block["updated_at"]}

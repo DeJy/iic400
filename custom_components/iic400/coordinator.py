@@ -29,6 +29,7 @@ from . import tuya_dp
 _LOGGER = logging.getLogger(__name__)
 
 PENDING = "pending"
+TRY_AGAIN = "try again"
 
 
 class Iic400Coordinator(DataUpdateCoordinator):
@@ -108,17 +109,10 @@ class Iic400Coordinator(DataUpdateCoordinator):
         and actively listen/re-nudge for up to SCHEDULE_REFRESH_WAIT,
         updating each zone's sensor the moment its block arrives rather than
         waiting for the whole window. DP 38 has no per-zone query - a zone
-        that never answers within the window has its "Pending…" cleared and
-        reverts to whatever it showed before this refresh started (its last
-        known value, or "Unknown" if it never had one) rather than getting
-        stuck on "Pending…" forever after we've stopped actually listening
-        for it."""
+        that never answers within the window is set to TRY_AGAIN rather than
+        getting stuck on "Pending…" forever after we've stopped actually
+        listening for it."""
         targets = set(zones) if zones else set(range(1, ZONE_COUNT + 1))
-        previous = {
-            z: self.data["schedules"][z]
-            for z in targets
-            if self.data["schedules"][z] != PENDING
-        }
         for zone in targets:
             self.data["schedules"][zone] = PENDING
         self.async_set_updated_data(self.data)
@@ -151,7 +145,7 @@ class Iic400Coordinator(DataUpdateCoordinator):
         timed_out = _still_pending()
         if timed_out:
             for zone in timed_out:
-                self.data["schedules"][zone] = previous.get(zone)
+                self.data["schedules"][zone] = TRY_AGAIN
             self.async_set_updated_data(self.data)
 
     async def async_send_manual(self, payload_b64):
