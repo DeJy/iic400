@@ -7,9 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A Home Assistant integration for the **Inkbird IIC-400-WIFI** 4-zone irrigation
 controller, built on Tuya's local (LAN-only) protocol. Two parts:
 
-1. `inkbird_iic400_wifi.yaml` — a `tuya-local` custom device profile for the
-   simple scalar DPs, being upstreamed into `tuya-local`'s built-in device
-   library (see `PR_Tuya_local/`). Copy-paste into `/config` until merged.
+1. `inkbird_iic400_wifi.yaml` — a `tuya-local` device profile for the
+   simple scalar DPs. Now merged into `tuya-local`'s built-in device
+   library upstream (`make-all/tuya-local`), so this copy is kept for
+   reference only — users don't need to install it manually anymore.
 2. `custom_components/iic400/` — a real Home Assistant integration (Python,
    HACS-installable, config-flow-based) for the two packed-binary DPs
    `tuya-local` can't express: DP 45 (manual start/stop) and DP 38
@@ -25,9 +26,9 @@ needed for that part).
 ## Repository layout
 
 - [`inkbird_iic400_wifi.yaml`](inkbird_iic400_wifi.yaml) — `tuya-local`
-  device profile. Deploys to
-  `/config/custom_components/tuya_local/devices/`. Out of scope for most
-  changes here — see `PR_Tuya_local/` for the upstream effort.
+  device profile. Merged upstream into `make-all/tuya-local`'s built-in
+  device library, so this copy is reference-only and out of scope for most
+  changes here.
 - [`custom_components/iic400/`](custom_components/iic400/) — the HA
   integration:
   - `tuya_dp.py` — pure DP 38/DP 45 byte-packing (no I/O, no HA imports).
@@ -44,10 +45,6 @@ needed for that part).
     `clear_schedule`, `quick_water`.
 - [`hacs.json`](hacs.json) — HACS custom-repository manifest for
   `custom_components/iic400/`.
-- [`PR_Tuya_local/`](PR_Tuya_local/) — working materials for upstreaming
-  `inkbird_iic400_wifi.yaml`: a draft GitHub issue with captured DP
-  logs/match-quality output, and a redacted HA diagnostics export. Scratch
-  space for that PR, not part of the runtime integration.
 
 ## Architecture: two integrations, one device
 
@@ -160,10 +157,10 @@ tracking even though it would look simpler.
 - `custom_components/iic400/` is a real HA custom_component: `manifest.json`
   requirements (`tinytuya`) are auto-installed by HACS/HA — don't reintroduce
   a manual `pip install --target` step or a `sys.path.insert` hack.
-- `inkbird_iic400_wifi.yaml` is written with an eye toward being merged
-  upstream into `make-all/tuya-local`'s built-in device library (see
-  `PR_Tuya_local/github_issue_draft.md`) — keep entity names plain English
-  and avoid repo-specific assumptions that wouldn't make sense as a
-  general-purpose device profile. This file and `custom_components/iic400/`
-  are otherwise independent; don't couple them beyond the DP 107 sensor
-  lookup already described above.
+- `inkbird_iic400_wifi.yaml` is merged into `make-all/tuya-local`'s
+  built-in device library upstream — this copy is reference-only. If it
+  needs changes, they should go to the upstream repo, not just here; keep
+  entity names plain English and avoid repo-specific assumptions that
+  wouldn't make sense as a general-purpose device profile. This file and
+  `custom_components/iic400/` are otherwise independent; don't couple them
+  beyond the DP 107 sensor lookup already described above.

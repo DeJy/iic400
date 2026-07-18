@@ -6,10 +6,11 @@ Tuya's local protocol.
 
 It gives you, in Home Assistant:
 
-- A `tuya-local` custom device profile (`inkbird_iic400_wifi.yaml`) that
-  exposes the controller's simple scalar DPs as normal entities (operation
-  mode, rain sensor, zones running, etc). This part is being upstreamed into
-  `tuya-local`'s built-in device library — see `PR_Tuya_local/`.
+- A `tuya-local` device profile (`inkbird_iic400_wifi.yaml`) that exposes
+  the controller's simple scalar DPs as normal entities (operation mode,
+  rain sensor, zones running, etc). This device is now built into
+  [`tuya-local`](https://github.com/make-all/tuya-local) itself, so you
+  don't need this repo's copy of the file — see [Step 1](#step-1--set-up-tuya-local).
 - **`custom_components/iic400/`** — a real Home Assistant integration
   (installable via HACS, with a proper "Add Integration" config flow) that
   drives the two packed-binary Tuya DPs `tuya-local` can't express: DP 45
@@ -31,13 +32,12 @@ over the same local Tuya protocol; nothing leaves your LAN at runtime.
 ## Repository layout
 
 ```
-inkbird_iic400_wifi.yaml        tuya-local custom device profile (being upstreamed)
+inkbird_iic400_wifi.yaml        tuya-local device profile (kept here for reference; built into tuya-local itself)
 custom_components/iic400/       HA integration: config flow, switches, sensors, services
 scripts/                        standalone CLI tools for manual DP 38 testing (see below)
 automation/                     example Home Assistant automations (see below)
 dashboards/                     example Lovelace dashboard for the device's entities
 hacs.json                       HACS custom-repository manifest
-PR_Tuya_local/                  working materials for the tuya-local upstream PR
 ```
 
 ---
@@ -57,18 +57,16 @@ PR_Tuya_local/                  working materials for the tuya-local upstream PR
 1. In HACS, search for **"Tuya Local"** (by `make-all`) and install it. If
    it isn't in the default HACS store, add it as a custom repository first:
    HACS → Integrations → ⋮ → **Custom repositories** → URL
-   `https://github.com/make-all/tuya-local`, category **Integration**.
-2. Until the upstream PR is merged, copy this repo's
-   [`inkbird_iic400_wifi.yaml`](inkbird_iic400_wifi.yaml) into
-   `/config/custom_components/tuya_local/devices/inkbird_iic400_wifi.yaml`
-   (re-copy after every `tuya-local` update — HACS reinstalls the whole
-   folder and wipes unmerged device files).
-3. Restart Home Assistant.
-4. **Settings → Devices & Services → Add Integration → Tuya Local**, using
+   `https://github.com/make-all/tuya-local`, category **Integration**. The
+   IIC-400 device profile is built in — no manual file copying needed. See
+   [`tuya-local`'s own README](https://github.com/make-all/tuya-local) for
+   general install/setup help.
+2. Restart Home Assistant.
+3. **Settings → Devices & Services → Add Integration → Tuya Local**, using
    the local (manual) setup path with the device's ID, local key, host, and
    protocol version (get these once via the `tinytuya` wizard — see
    `tuya-local`'s own docs).
-5. Confirm it's identified as **Inkbird IIC-400 irrigation controller** with
+4. Confirm it's identified as **Inkbird IIC-400 irrigation controller** with
    entities including a "zones running" sensor.
 
 ---
